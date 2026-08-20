@@ -16,6 +16,10 @@ npm run fonts      # downloads the Khmer font; without it Khmer renders in a fal
 
 ## 2. Create `.env.local`
 
+`.env.local` overrides `.env` and is gitignored, so your real deployment values
+stay untouched — you never have to edit, and later restore, the file holding
+the production bot token.
+
 Copy this verbatim. The token and group id are deliberate fakes — nothing here
 reaches Telegram, so nothing here is a secret.
 

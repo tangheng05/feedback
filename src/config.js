@@ -1,9 +1,20 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+/*
+ * .env holds the real deployment values. .env.local, when present, overrides
+ * them and is gitignored.
+ *
+ * The point is that trying the form on a laptop must not mean editing -- and
+ * risking committing, or forgetting to restore -- the file that carries the
+ * production bot token and the base URL printed on every poster.
+ */
+dotenv.config({ path: path.join(ROOT, '.env') });
+dotenv.config({ path: path.join(ROOT, '.env.local'), override: true });
 
 /*
  * Values shipped in .env.example.
