@@ -37,7 +37,7 @@ const qrOpts = () => ({ errorCorrectionLevel: hasLogo() ? 'H' : 'Q', margin: 4 }
  * artwork buys back enough headroom to draw the logo larger and still erase
  * less of the code than a square plate at the smaller size.
  */
-const LOGO_WIDTH_RATIO = 0.22;
+const LOGO_WIDTH_RATIO = 0.24;
 const LOGO_PAD_RATIO = 0.14; // white margin around the logo, as a fraction of its width
 
 const pngCache = new Map();
@@ -186,7 +186,6 @@ const esc = (s) =>
  */
 export function posterHtml({ name, slug, svg, nonce = '' }) {
   const n = nonce ? ` nonce="${esc(nonce)}"` : '';
-  const url = formUrl(slug).replace(/^https?:\/\//, '');
   const b = config.brand;
   const logo = logoDataUri();
 
@@ -223,37 +222,34 @@ export function posterHtml({ name, slug, svg, nonce = '' }) {
   }
 
   /* The decorative field. Absolutely positioned SVG, so it prints. */
-  .field { position: absolute; inset: 0 0 auto 0; height: 122mm; width: 100%; display: block; }
+  .field { position: absolute; inset: 0 0 auto 0; height: 134mm; width: 100%; display: block; }
 
-  .top { position: relative; z-index: 1; width: 100%; height: 122mm;
+  .top { position: relative; z-index: 1; width: 100%; height: 134mm;
          display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8mm; }
 
   /* The QR card. A white plate with a hard edge is what a phone camera wants:
      it separates the code from the colour behind it at any angle. */
-  .card { background: #fff; padding: 7mm; box-shadow: 0 1mm 4mm rgba(0,0,0,.18); }
-  .card svg { display: block; width: 62mm; height: 62mm; }
+  .card { background: #fff; padding: 8mm; box-shadow: 0 1mm 4mm rgba(0,0,0,.18); }
+  .card svg { display: block; width: 88mm; height: 88mm; }
 
   .bottom { position: relative; z-index: 1; flex: 1; width: 100%;
-            padding: 7mm 12mm 9mm; display: flex; flex-direction: column; align-items: center; }
+            padding: 8mm 12mm 10mm; display: flex; flex-direction: column; align-items: center; }
 
   .brandrow { display: flex; align-items: center; justify-content: center; gap: 3mm; margin-bottom: 1mm; }
-  .brandrow img { height: 9mm; width: auto; max-width: 40mm; object-fit: contain; }
-  .brandname { font-size: 12pt; font-weight: 700; letter-spacing: .02em; }
+  .brandrow img { height: 13mm; width: auto; max-width: 56mm; object-fit: contain; }
+  .brandname { font-size: 15pt; font-weight: 700; letter-spacing: .02em; }
 
   /* Khmer shop names are common: uppercase is a no-op on Khmer, and
      letter-spacing can land between a base consonant and its coeng, pulling
      the script apart on printed paper. */
-  h1 { font-size: 19pt; margin: 0 0 1mm; font-weight: 700; text-transform: none; letter-spacing: 0; }
-  h2 { font-size: 11.5pt; margin: 0; font-weight: 400; color: #3f3f46; }
+  h1 { font-size: 25pt; margin: 0 0 1.5mm; font-weight: 700; text-transform: none; letter-spacing: 0; line-height: 1.5; }
+  h2 { font-size: 15pt; margin: 0; font-weight: 400; color: #3f3f46; }
   .en { color: #52525b; }
 
-  .label { font-size: 8pt; letter-spacing: .18em; text-transform: uppercase;
-           color: #71717a; margin-top: 4mm; line-height: 1.6; }
-  .value { font-size: 11pt; font-weight: 600; line-height: 1.5; }
-  .url { font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
-         font-size: 9pt; word-break: break-all; line-height: 1.4; }
+  .label { font-size: 10pt; letter-spacing: .14em; text-transform: uppercase;
+           color: #71717a; margin-top: 6mm; line-height: 1.6; }
+  .value { font-size: 17pt; font-weight: 700; line-height: 1.4; }
 
-  .foot { margin-top: auto; font-size: 8.5pt; color: #71717a; }
 
   .bar {
     position: fixed; top: 0; left: 0; right: 0; z-index: 5;
@@ -317,9 +313,6 @@ export function posterHtml({ name, slug, svg, nonce = '' }) {
 
     <div class="label">${POSTER.locationLabel}</div>
     <div class="value">${esc(name)}</div>
-
-    <div class="label">${POSTER.linkLabel}</div>
-    <div class="value url" lang="en">${esc(url)}</div>
 ${
   contact.length
     ? `
@@ -327,10 +320,6 @@ ${
     <div class="value" lang="en">${contact.map(esc).join('<br>')}</div>`
     : ''
 }
-    <div class="foot">
-      ${POSTER.footKm}<br>
-      <span class="en" lang="en">${POSTER.footEn}</span>
-    </div>
   </div>
 </div>
 

@@ -102,19 +102,19 @@ export const STRINGS = {
   },
 };
 
+/*
+ * Poster text. Deliberately short.
+ *
+ * This is read from a metre away by someone deciding in about a second whether
+ * to take their phone out. Every line that is not the question or the shop
+ * name competes with the two that are, and the printed URL in particular was
+ * dead weight: nobody types a URL off a poster that has a QR code on it.
+ */
 export const POSTER = {
-  headingKm: 'មានបញ្ហា ឬ មតិយោបល់?',
+  headingKm: 'តើលោកអ្នកមានបញ្ហា ឬមតិយោបល់មែនទេ?',
   headingEn: 'Something to tell us?',
-  subKm: 'ស្កេនដើម្បីផ្ញើមតិយោបល់ដោយអនាមិក',
-  subEn: 'Scan to send anonymous feedback',
-  footKm: 'គ្មានឈ្មោះ · គ្មានលេខទូរស័ព្ទ · ផ្ទាល់ទៅអ្នកគ្រប់គ្រង',
-  footEn: 'No name · No phone number · Straight to management',
-
-  // Small caps labels on the poster. Khmer first, English under it, matching
-  // how the rest of the sheet reads.
-  locationLabel: 'LOCATION · ទីតាំង',
-  linkLabel: 'LINK · តំណ',
-  contactLabel: 'CONTACT · ទំនាក់ទំនង',
+  locationLabel: 'ទីតាំង · LOCATION',
+  contactLabel: 'ទំនាក់ទំនង · CONTACT',
 };
 
 export const pickLang = (raw) => (LANGS.includes(raw) ? raw : DEFAULT_LANG);
