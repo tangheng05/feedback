@@ -5,6 +5,7 @@ import { config, ROOT } from './config.js';
 import { POSTER } from './i18n.js';
 import { logoDataUri } from './brand.js';
 import { qrModules } from './qr.js';
+import { fontFaceCss } from './views.js';
 
 /*
  * The poster, drawn once as SVG.
@@ -274,7 +275,17 @@ export function posterHtml({ name, qrSvg, nonce = '' }) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>${esc(name)}</title>
-<style${n}>
+<style${n}>${fontFaceCss}
+  /*
+   * The @font-face above is not decoration.
+   *
+   * The sheet is one SVG whose text asks for 'Noto Sans Khmer' by name. The
+   * PNG is rendered on the server, which loads the TTFs directly - but this
+   * page is rendered by whatever browser the admin opened it in, and without a
+   * font to fetch it substitutes a system face. Khmer then comes out with
+   * marks stacked over the wrong consonants: legible-looking, and wrong.
+   */
+  svg text { font-family: 'Noto Sans Khmer', 'Khmer OS', system-ui, sans-serif; }
   @page { size: A5; margin: 0; }
   html, body { margin: 0; padding: 0; background: #e4e4e7; }
   body { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px;
