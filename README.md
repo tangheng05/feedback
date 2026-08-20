@@ -90,19 +90,22 @@ handful of endpoints and a client library would be larger than the wrapper.
 
 Full runbook, including the Telegram-side steps: **[deploy/DEPLOY.md](deploy/DEPLOY.md)**
 
-Local development:
+Trying it on your own machine first, with no domain and no Telegram account:
+**[deploy/LOCAL.md](deploy/LOCAL.md)**
 
 ```bash
 npm install
 npm run fonts                          # Khmer webfont (one variable file)
-cp .env.example .env                   # fill it in
+cp .env.example .env                   # fill it in (LOCAL.md has a ready-made local set)
 npm run seed -- "Test Shop" test 0     # a location, without touching Telegram
 npm run dev                            # http://localhost:3000/f/test
+npm run peek                           # what actually landed in the database
 ```
 
-To exercise the bot locally, expose the port with a tunnel
-(`cloudflared tunnel --url http://localhost:3000`), set `PUBLIC_BASE_URL` to the
-tunnel URL, and run `npm run set-webhook`.
+Everything the customer touches works offline. Only the bot half needs real
+Telegram: expose the port with a tunnel (`cloudflared tunnel --url
+http://localhost:3000`), point `PUBLIC_BASE_URL` at the tunnel URL, and run
+`npm run set-webhook`.
 
 ## Layout
 

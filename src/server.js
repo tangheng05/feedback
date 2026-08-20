@@ -25,9 +25,16 @@ const app = express();
  */
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
-// One hop: nginx. The server binds to loopback only (see listen below), so
-// nginx is always in the path and X-Forwarded-For is proxy-written.
-app.set('trust proxy', 1);
+/*
+ * One hop: nginx. The loopback binding below guarantees nginx is in the path,
+ * so X-Forwarded-For is proxy-written and can be trusted.
+ *
+ * When BIND_HOST is opened up for LAN testing there is no proxy, so that
+ * header becomes entirely client-supplied — trusting it there would let any
+ * phone on the wifi hand us whatever IP it liked. Use the socket address.
+ */
+const behindProxy = config.bindHost === '127.0.0.1' || config.bindHost === '::1';
+app.set('trust proxy', behindProxy ? 1 : 0);
 app.disable('x-powered-by');
 
 app.use(express.json({ limit: '32kb' }));
@@ -340,9 +347,18 @@ schedulePurge();
  * client-supplied X-Forwarded-For that makes the per-IP rate limit free to
  * defeat with a fresh fake IP per request.
  */
-const server = app.listen(config.port, '127.0.0.1', () => {
-  console.log(`feedback server listening on 127.0.0.1:${config.port}`);
+const server = app.listen(config.port, config.bindHost, () => {
+  console.log(`feedback server listening on ${config.bindHost}:${config.port}`);
   console.log(`public base url: ${config.baseUrl}`);
+  if (!behindProxy) {
+    console.warn(
+      `[warn] BIND_HOST=${config.bindHost} exposes this port directly, with no nginx and no TLS. ` +
+        'Local testing only.'
+    );
+  }
+  if (config.isLocalBaseUrl) {
+    console.warn('[warn] PUBLIC_BASE_URL is a local address, so any QR generated now works only on this network.');
+  }
 });
 
 /*

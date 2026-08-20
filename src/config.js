@@ -45,10 +45,23 @@ function int(name, fallback, { min = 1 } = {}) {
 // Trailing slashes here would produce "https://host//f/slug" in every QR, which
 // works but looks broken to anyone reading the printed URL.
 const baseUrl = required('PUBLIC_BASE_URL').replace(/\/+$/, '');
-if (!/^https:\/\/[^\s/]+$/.test(baseUrl)) {
+
+/*
+ * https is required in production: Telegram will not register a webhook on
+ * plain http, and this value is printed into every QR code.
+ *
+ * Local addresses are the deliberate exception. Testing the form on your own
+ * machine, or on a phone over the LAN, has no certificate — and refusing
+ * that would mean the only way to try the form at all is to deploy it.
+ */
+const LOCAL_ORIGIN =
+  /^http:\/\/(localhost|127\.0\.0\.1|\[::1\]|10\.[0-9.]+|192\.168\.[0-9.]+|172\.(1[6-9]|2[0-9]|3[01])\.[0-9.]+)(:[0-9]+)?$/;
+export const isLocalBaseUrl = LOCAL_ORIGIN.test(baseUrl);
+
+if (!isLocalBaseUrl && !/^https:\/\/[^\s/]+$/.test(baseUrl)) {
   throw new Error(
     `PUBLIC_BASE_URL must be an https origin with no path, e.g. https://feedback.yourshop.com — got "${baseUrl}". ` +
-      'Telegram refuses to register a webhook on plain http, and the QR is printed with this value.'
+      'For local testing use http://localhost:3000, or your LAN address such as http://192.168.1.20:3000.'
   );
 }
 
@@ -90,7 +103,16 @@ if (!/^-\d+$/.test(groupId.trim())) {
 
 export const config = {
   baseUrl,
+  isLocalBaseUrl,
   port: int('PORT', 3000),
+
+  /*
+   * Loopback in production: nginx must be the only way in, or a client writes
+   * its own X-Forwarded-For and the per-IP rate limit is free to defeat.
+   * Set BIND_HOST=0.0.0.0 ONLY to reach the form from a phone on your own LAN
+   * while testing — server.js stops trusting proxy headers when you do.
+   */
+  bindHost: process.env.BIND_HOST || '127.0.0.1',
 
   telegram: {
     token: required('TELEGRAM_BOT_TOKEN'),

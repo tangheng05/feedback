@@ -13,7 +13,8 @@
     "seed": "node scripts/seed.js",
     "set-webhook": "node scripts/set-webhook.js",
     "purge": "node scripts/purge.js",
-    "fonts": "node scripts/fetch-fonts.js"
+    "fonts": "node scripts/fetch-fonts.js",
+    "peek": "node scripts/peek.js"
   },
   "dependencies": {
     "better-sqlite3": "^11.5.0",

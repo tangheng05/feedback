@@ -6,7 +6,7 @@
  * Usage: node scripts/seed.js "Test Shop" test 0
  *        (name, slug, topic_id — topic 0 posts to the group's General thread)
  */
-import { insertLocation, getLocation } from '../src/db.js';
+import { reserveLocation, setLocationTopic, getLocation } from '../src/db.js';
 import { slugify } from '../src/commands.js';
 import { formUrl } from '../src/qr.js';
 
@@ -22,6 +22,15 @@ if (getLocation(slug)) {
   process.exit(0);
 }
 
-const location = insertLocation({ name, slug, topicId: Number(topicId) });
-console.log(`Seeded "${location.name}"`);
-console.log(formUrl(location.slug));
+// reserveLocation claims the slug with a placeholder topic and setLocationTopic
+// fills it in — the same two steps /add uses, so a seeded row is
+// indistinguishable from one the bot created.
+const location = reserveLocation({ slug, name });
+if (!location) {
+  console.error(`Could not reserve "${slug}".`);
+  process.exit(1);
+}
+setLocationTopic(slug, Number(topicId) || 0);
+
+console.log(`Seeded "${location.name}" as /f/${slug}`);
+console.log(formUrl(slug));
