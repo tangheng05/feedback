@@ -304,7 +304,7 @@ app.get('/poster/:slug.png', wrap(async (req, res) => {
   if (!posterPngCache.has(location.slug)) {
     posterPngCache.set(
       location.slug,
-      posterPng({ name: location.name, qrSvg: await qrSvg(location.slug) })
+      posterPng({ name: location.name, qrSvg: await qrSvg(location.slug, { margin: 0 }) })
     );
   }
   res.type('png').set('Cache-Control', 'public, max-age=86400').send(posterPngCache.get(location.slug));
@@ -324,7 +324,7 @@ app.get('/poster/:slug', wrap(async (req, res) => {
   res
     .type('html')
     .set('Cache-Control', 'public, max-age=3600')
-    .send(posterHtml({ name: location.name, qrSvg: await qrSvg(location.slug), nonce: res.locals.nonce }));
+    .send(posterHtml({ name: location.name, qrSvg: await qrSvg(location.slug, { margin: 0 }), nonce: res.locals.nonce }));
 }));
 
 /* --------------------------------------------------------- telegram webhook */

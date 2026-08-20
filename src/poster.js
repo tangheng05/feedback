@@ -4,6 +4,7 @@ import { Resvg } from '@resvg/resvg-js';
 import { config, ROOT } from './config.js';
 import { POSTER } from './i18n.js';
 import { logoDataUri } from './brand.js';
+import { qrModules } from './qr.js';
 
 /*
  * The poster, drawn once as SVG.
@@ -32,6 +33,18 @@ const fontOpts = {
   loadSystemFonts: false,
 };
 
+/*
+ * Put a space between Khmer text and a trailing ? or !
+ *
+ * The shaper folds an ASCII question mark into the preceding Khmer cluster and
+ * draws it ON TOP of the final consonant - "ទេ?" comes out as one
+ * illegible blob. Tested against the alternatives: a zero-width space and a
+ * word joiner are both swallowed the same way; only a real space separates
+ * them. Browsers get this right, so the strings themselves stay exactly as the
+ * reviewer wrote them and the workaround lives here, where the bug is.
+ */
+const spaceBeforePunct = (s) => String(s).replace(/([ក-៿])([?!])$/u, '$1 $2');
+
 const esc = (s) =>
   String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -56,7 +69,7 @@ function widthRatio(text, weight) {
 
   const probe = `<svg xmlns="http://www.w3.org/2000/svg" width="6000" height="400" viewBox="0 0 6000 400">
     <rect width="6000" height="400" fill="#fff"/>
-    <text x="20" y="280" font-family="${FONT_FAMILY}" font-size="${REF_SIZE}" font-weight="${weight}" fill="#000">${esc(text)}</text>
+    <text x="20" y="280" font-family="${FONT_FAMILY}" font-size="${REF_SIZE}" font-weight="${weight}" fill="#000">${esc(spaceBeforePunct(text))}</text>
   </svg>`;
 
   let ratio = 0.55 * text.length; // only used if the probe itself fails
@@ -119,7 +132,20 @@ export function posterSvg({ name, qrSvg }) {
   const card = 98;
   const cardX = (MM_W - card) / 2;
   const cardY = (fieldH - card) / 2;
-  const qrPad = 7;
+
+  /*
+   * The card's padding IS the quiet zone.
+   *
+   * The code is drawn with margin 0 and the white card supplies the four
+   * modules of clear space a scanner needs. Doing both - a margin inside the
+   * image and padding around it - ringed the code in about 14mm of white and
+   * made it look small on the sheet, which is exactly what it looked like.
+   *
+   * Solving p >= 4 * (card - 2p) / modules for p gives the smallest padding
+   * that still satisfies the spec, so the code itself gets everything else.
+   */
+  const modules = qrModules(qrSvg) || 41;
+  const qrPad = Math.ceil((4 * card) / (modules + 8));
 
   // -- the band underneath ---------------------------------------------------
   /*
@@ -200,7 +226,7 @@ export function posterSvg({ name, qrSvg }) {
 function text(value, baseline, size, weight, fill) {
   return (
     `<text x="${MM_W / 2}" y="${baseline}" text-anchor="middle" font-family="${FONT_FAMILY}" ` +
-    `font-size="${size.toFixed(2)}" font-weight="${weight}" fill="${fill}">${esc(value)}</text>`
+    `font-size="${size.toFixed(2)}" font-weight="${weight}" fill="${fill}">${esc(spaceBeforePunct(value))}</text>`
   );
 }
 

@@ -135,10 +135,18 @@ export async function qrPng(slug) {
   return pngCache.get(slug);
 }
 
-/** Vector, so the printed edges stay razor sharp at any paper size. */
-export async function qrSvg(slug) {
-  if (!svgCache.has(slug)) {
-    let svg = await QRCode.toString(formUrl(slug), { ...qrOpts(), type: 'svg' });
+/**
+ * Vector, so the printed edges stay razor sharp at any paper size.
+ *
+ * `margin` is the quiet zone in modules. The default 4 is what the spec asks
+ * for and what a standalone image needs. The poster passes 0 because it draws
+ * the code on a white card whose padding IS the quiet zone - with both, the
+ * code ended up ringed by 14mm of white and looked lost on the sheet.
+ */
+export async function qrSvg(slug, { margin = 4 } = {}) {
+  const key = `${slug}|m${margin}`;
+  if (!svgCache.has(key)) {
+    let svg = await QRCode.toString(formUrl(slug), { ...qrOpts(), margin, type: 'svg' });
 
     if (hasLogo()) {
       // The generated SVG uses a viewBox in module units; read it rather than
@@ -162,9 +170,15 @@ export async function qrSvg(slug) {
       }
     }
 
-    svgCache.set(slug, svg);
+    svgCache.set(key, svg);
   }
-  return svgCache.get(slug);
+  return svgCache.get(key);
+}
+
+/** Modules across the code, quiet zone excluded. */
+export function qrModules(svg) {
+  const vb = svg.match(/viewBox="0 0 (\d+(?:\.\d+)?)/);
+  return vb ? Number(vb[1]) : 0;
 }
 
 const esc = (s) =>
