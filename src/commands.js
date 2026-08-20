@@ -175,7 +175,7 @@ async function cmdAdd(arg, threadId) {
 ` +
     `Print this at A5. Feedback will arrive in the <b>${esc(name)}</b> topic.`;
 
-  const png = posterPng({ name, qrSvg: await qrSvg(slug, { margin: 0 }) });
+  const png = await posterPng({ name, qrSvg: await qrSvg(slug, { margin: 0 }) });
   await tg.sendPhoto({
     buffer: png,
     filename: `${slug}-poster.png`,
@@ -213,7 +213,7 @@ async function cmdQr(arg, threadId) {
     return reply(threadId, `No location with slug <code>${esc(slug)}</code>. Try <code>/list</code>.`);
   }
 
-  const png = posterPng({ name: location.name, qrSvg: await qrSvg(location.slug, { margin: 0 }) });
+  const png = await posterPng({ name: location.name, qrSvg: await qrSvg(location.slug, { margin: 0 }) });
   await tg.sendPhoto({
     buffer: png,
     filename: `${location.slug}-poster.png`,

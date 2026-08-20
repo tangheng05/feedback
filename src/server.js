@@ -304,7 +304,7 @@ app.get('/poster/:slug.png', wrap(async (req, res) => {
   if (!posterPngCache.has(location.slug)) {
     posterPngCache.set(
       location.slug,
-      posterPng({ name: location.name, qrSvg: await qrSvg(location.slug, { margin: 0 }) })
+      await posterPng({ name: location.name, qrSvg: await qrSvg(location.slug, { margin: 0 }) })
     );
   }
   res.type('png').set('Cache-Control', 'public, max-age=86400').send(posterPngCache.get(location.slug));

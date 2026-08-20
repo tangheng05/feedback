@@ -1,6 +1,8 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { PNG } from 'pngjs';
 import { Resvg } from '@resvg/resvg-js';
+import puppeteer from 'puppeteer';
 import { config, ROOT } from './config.js';
 import { POSTER } from './i18n.js';
 import { logoDataUri } from './brand.js';
@@ -11,10 +13,10 @@ import { fontFaceCss } from './views.js';
  * The poster, drawn once as SVG.
  *
  * It used to be an HTML page, which printed well but could not be turned into
- * an image without a headless browser. Everything is SVG now and the three
- * outputs all come from this one function: the print page embeds it, the PNG
- * is a rasterisation of it, and there is no second layout to drift out of sync
- * with the first.
+ * an image without a headless browser. Everything is SVG now and both outputs
+ * come from this one function: the print page embeds it, and Chromium
+ * screenshots the same sheet for the PNG. There is no second layout to drift
+ * out of sync with the first.
  *
  * Coordinates are millimetres on an A5 sheet, so the numbers below are the
  * measurements you would give a printer.
@@ -25,6 +27,10 @@ const MM_H = 210;
 
 const FONT_DIR = path.join(ROOT, 'public/fonts');
 const FONT_FAMILY = 'Kantumruy Pro';
+const KHMER_FONT_DATA_URI = `data:font/woff2;base64,${fs
+  .readFileSync(path.join(FONT_DIR, 'KhmerUI.woff2'))
+  .toString('base64')}`;
+let browserPromise;
 
 const fontOpts = {
   fontDirs: [FONT_DIR],
@@ -265,14 +271,33 @@ function label(value, y, size) {
  */
 const DPI = 300;
 
-export function posterPng({ name, qrSvg }) {
-  const svg = posterSvg({ name, qrSvg });
-  const img = new Resvg(svg, {
-    font: fontOpts,
-    fitTo: { mode: 'width', value: Math.round((MM_W / 25.4) * DPI) },
-    background: '#ffffff',
-  }).render();
-  return img.asPng();
+async function browser() {
+  browserPromise ??= puppeteer.launch({ headless: 'new' });
+  return browserPromise;
+}
+
+/*
+ * Chromium's HarfBuzz text stack is used for the final rasterisation. The
+ * font is inlined because setContent() has no application origin from which
+ * to resolve /fonts/KhmerUI.woff2, and a network-dependent font would make
+ * the generated poster nondeterministic.
+ */
+export async function posterPng({ name, qrSvg }) {
+  const page = await (await browser()).newPage();
+  try {
+    const html = posterHtml({ name, qrSvg }).replace(
+      "url('/fonts/KhmerUI.woff2')",
+      `url('${KHMER_FONT_DATA_URI}')`
+    );
+    await page.setViewport({ width: 800, height: 1000, deviceScaleFactor: 300 / 96 });
+    await page.setContent(html, { waitUntil: 'load' });
+    await page.evaluate(() => document.fonts.ready);
+    const sheet = await page.$('.sheet');
+    if (!sheet) throw new Error('Poster template did not contain an A5 sheet.');
+    return Buffer.from(await sheet.screenshot({ type: 'png' }));
+  } finally {
+    await page.close();
+  }
 }
 
 /* ------------------------------------------------------------- print page */

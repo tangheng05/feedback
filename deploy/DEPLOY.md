@@ -88,6 +88,11 @@ sudo ufw allow 22,80,443/tcp
 sudo ufw --force enable
 ```
 
+The poster PNG is rendered by Puppeteer's bundled Chromium so Khmer OpenType
+shaping uses the browser's HarfBuzz stack. Install dependencies normally with
+`npm ci`; if Puppeteer reports that its browser is missing, run
+`npx puppeteer browsers install chrome` as the `feedback` user.
+
 > **Do not expose port 3000.** The app binds to loopback deliberately. Anything
 > that reaches it without passing through nginx supplies its own
 > `X-Forwarded-For`, which makes the per-IP rate limit free to defeat.
