@@ -386,9 +386,9 @@ means the submission is safe in the database and only the Telegram push failed
 The fonts didn't download. Run `npm run fonts` and restart.
 
 **The poster image has no text on it**
-Same cause, different file: `public/fonts/NotoSansKhmer-Regular.ttf` is
-missing. `npm run fonts` fetches it. `ls public/fonts` should show two `.ttf`
-files alongside the `.woff2`.
+Same cause, different file: `public/fonts/KhmerUI-Regular.ttf` is
+missing. `npm run fonts` fetches it. `ls public/fonts` should show the
+`KhmerUI` `.ttf` files alongside the `.woff2`.
 
 **`npm ci` fails on @resvg/resvg-js**
 It ships prebuilt binaries for common platforms and needs no compiler. If your

@@ -24,7 +24,7 @@ const MM_W = 148;
 const MM_H = 210;
 
 const FONT_DIR = path.join(ROOT, 'public/fonts');
-const FONT_FAMILY = 'Noto Sans Khmer';
+const FONT_FAMILY = 'Kantumruy Pro';
 
 const fontOpts = {
   fontDirs: [FONT_DIR],
@@ -47,7 +47,7 @@ const fontOpts = {
 /*
  * Khmer never goes above weight 500 here.
  *
- * Noto Sans Khmer Bold thickens the strokes without opening the sidebearings
+ * Kantumruy Pro Bold thickens the strokes without opening the sidebearings
  * or the clearance under a base consonant, so a coeng stack that is legible at
  * 400 collides at 700: in "បញ្ហា" the subscript merges into the
  * consonant above it and that consonant fuses with the vowel after it. It
@@ -297,13 +297,13 @@ export function posterHtml({ name, qrSvg, nonce = '' }) {
   /*
    * The @font-face above is not decoration.
    *
-   * The sheet is one SVG whose text asks for 'Noto Sans Khmer' by name. The
+   * The sheet is one SVG whose text asks for 'Kantumruy Pro' by name. The
    * PNG is rendered on the server, which loads the TTFs directly - but this
    * page is rendered by whatever browser the admin opened it in, and without a
    * font to fetch it substitutes a system face. Khmer then comes out with
    * marks stacked over the wrong consonants: legible-looking, and wrong.
    */
-  svg text { font-family: 'Noto Sans Khmer', 'Khmer OS', system-ui, sans-serif; }
+  svg text { font-family: 'Kantumruy Pro', 'Khmer OS', system-ui, sans-serif; }
   @page { size: A5; margin: 0; }
   html, body { margin: 0; padding: 0; background: #e4e4e7; }
   body { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px;

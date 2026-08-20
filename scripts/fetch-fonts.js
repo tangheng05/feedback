@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Downloads Noto Sans Khmer into public/fonts/ - both the woff2 the browser
+ * Downloads Kantumruy Pro Khmer into public/fonts/ - both the woff2 the browser
  * uses and the TTFs the poster renderer needs.
  *
  * The TTFs are not optional. resvg rasterises the poster and cannot read
@@ -139,7 +139,7 @@ main().catch((err) => {
   console.error('\nFont download failed:', err.message);
   console.error(
     'The form still works without this file — Khmer falls back to system fonts.\n' +
-      'To do it by hand: open https://fonts.google.com/noto/specimen/Noto+Sans+Khmer,\n' +
+      'To do it by hand: open https://fonts.google.com/specimen/Kantumruy+Pro,\n' +
       `download the family, and save the Khmer woff2 as public/fonts/${TARGET}.`
   );
   process.exit(1);

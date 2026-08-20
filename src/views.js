@@ -3,7 +3,7 @@ import { logoUrl, logoDarkUrl, hasDarkLogo, hasAnyLogo } from './brand.js';
 import { config } from './config.js';
 
 /**
- * Self-hosted Noto Sans Khmer, inlined rather than linked.
+ * Self-hosted Kantumruy Pro Khmer, inlined rather than linked.
  *
  * A separate stylesheet would be a render-blocking round trip before any Khmer
  * can paint — on slow mobile data that is the difference between a form that
@@ -19,11 +19,11 @@ import { config } from './config.js';
  */
 export const fontFaceCss = `
   @font-face {
-    font-family: 'Noto Sans Khmer';
+    font-family: 'Kantumruy Pro';
     font-style: normal;
     font-weight: 400 700;
     font-display: swap;
-    src: url('/fonts/NotoSansKhmer.woff2') format('woff2');
+    src: url('/fonts/KhmerUI.woff2') format('woff2');
     unicode-range: U+1780-17FF, U+19E0-19FF, U+200C-200D, U+25CC;
   }
 `;
@@ -103,7 +103,7 @@ const baseCss = `
 
   body {
     margin: 0;
-    font-family: 'Noto Sans Khmer', 'Khmer OS', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Kantumruy Pro', 'Khmer OS', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     line-height: 1.9;
     background: var(--bg);
     color: var(--fg);
@@ -145,7 +145,7 @@ function shell({ lang, title, body, css = '', script = '', head = '', nonce = ''
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
 <link rel="icon" href="data:,">
-<link rel="preload" as="font" type="font/woff2" href="/fonts/NotoSansKhmer.woff2" crossorigin>
+<link rel="preload" as="font" type="font/woff2" href="/fonts/KhmerUI.woff2" crossorigin>
 <title>${esc(title)}</title>
 <style${n}>${fontFaceCss}${baseCss}${css}</style>
 ${head}
@@ -293,7 +293,7 @@ const formCss = `
   /*
    * Khmer headings stay at 500, not 700.
    *
-   * Noto Sans Khmer Bold thickens the strokes without opening the clearance
+   * Kantumruy Pro Bold thickens the strokes without opening the clearance
    * under a base consonant, so a subscript merges into the consonant above it
    * and the whole cluster reads as a blob. 500 still comes from the Regular
    * face and is the heaviest weight that stays legible.
