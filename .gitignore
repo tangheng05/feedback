@@ -7,3 +7,4 @@ data/*.db-shm
 *.log
 public/fonts/*.woff2
 .env.local
+logs/

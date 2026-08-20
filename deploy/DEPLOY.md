@@ -212,6 +212,54 @@ the `http://<internal-ip>:3000` the proxy talks to.
 
 ## 8. Start the service
 
+Two options. **pm2** is simpler and works with a Node installed through nvm;
+**systemd** is the smaller-footprint choice if Node is at `/usr/bin/node`.
+
+### Option A — pm2
+
+```bash
+npm install -g pm2
+
+cd /opt/feedback
+pm2 start deploy/ecosystem.config.cjs
+pm2 save
+pm2 startup                 # prints a command -- run it, or reboots lose the app
+```
+
+Check it:
+
+```bash
+pm2 status
+pm2 logs feedback           # live; Ctrl+C stops watching, not the app
+curl http://127.0.0.1:3000/healthz
+```
+
+Day to day:
+
+| Task | Command |
+|---|---|
+| Logs | `pm2 logs feedback` |
+| Last 100 lines | `pm2 logs feedback --lines 100` |
+| Restart (after any `.env` edit) | `pm2 restart feedback` |
+| Stop | `pm2 stop feedback` |
+| Memory / uptime / restarts | `pm2 status` |
+
+Keep the logs from filling the disk:
+
+```bash
+pm2 install pm2-logrotate
+pm2 set pm2-logrotate:max_size 10M
+pm2 set pm2-logrotate:retain 7
+```
+
+> `.env` is read once at startup. Editing it does nothing until
+> `pm2 restart feedback`, and that catches people out every time.
+
+### Option B — systemd
+
+Requires Node at `/usr/bin/node` (a NodeSource install, not nvm — the unit's
+`ProtectHome=true` cannot see `/root/.nvm`).
+
 ```bash
 sudo cp deploy/feedback.service /etc/systemd/system/
 sudo systemctl daemon-reload
@@ -219,10 +267,9 @@ sudo systemctl enable --now feedback
 sudo systemctl status feedback
 ```
 
-Check it's alive:
-
 ```bash
-curl https://feedback.yourdomain.com/healthz     # {"ok":true}
+journalctl -u feedback -f
+curl http://127.0.0.1:3000/healthz     # {"ok":true}
 ```
 
 ---
