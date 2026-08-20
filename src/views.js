@@ -225,14 +225,20 @@ const formCss = `
   h1 {
     font-size: clamp(1.25rem, 5vw, 1.5rem);
     font-weight: 700; letter-spacing: -.01em;
-    margin: 0 0 .75rem;
+    margin: 0 0 1.5rem;
   }
   html[lang="en"] h1 { line-height: 1.25; }
 
 
-  fieldset { border: 0; margin: 0 0 1.75rem; padding: 0; }
-  legend { padding: 0; font-size: .8125rem; font-weight: 600; margin-bottom: .625rem; }
-  legend .opt { font-weight: 400; color: var(--muted); }
+  fieldset { border: 0; margin: 0 0 1.875rem; padding: 0; }
+  fieldset:last-of-type { margin-bottom: 1.25rem; }
+  /* Questions, not headings: enough weight to anchor each group, quiet enough
+     that the answers below are what the eye lands on. */
+  legend { padding: 0; font-size: .875rem; font-weight: 600; margin-bottom: .75rem;
+           color: var(--fg); }
+  /* Kept on one piece: "(optional)" split across two lines reads as a second
+     question rather than a note on the first. */
+  legend .opt { font-weight: 400; color: var(--muted); white-space: nowrap; }
 
   .chips {
     display: flex; flex-wrap: wrap; gap: .5rem;
@@ -243,36 +249,52 @@ const formCss = `
   }
   .chips input { position: absolute; opacity: 0; pointer-events: none; }
   .chips label {
-    display: inline-flex; align-items: center; padding: 0 1rem;
-    border: 1px solid var(--border); border-radius: 999px; cursor: pointer;
-    font-size: .9375rem; user-select: none;
-    /* 44px minimum touch target — used one-handed, standing in a shop. */
-    min-height: 44px;
-    transition: background .12s ease, border-color .12s ease, transform .06s ease;
+    display: inline-flex; align-items: center; padding: 0 1.125rem;
+    border: 1.5px solid var(--border); border-radius: 999px; cursor: pointer;
+    font-size: .9375rem; user-select: none; background: transparent; color: var(--fg);
+    /* 44px minimum touch target - used one-handed, standing in a shop. */
+    min-height: 46px;
+    transition: background .14s ease, border-color .14s ease, color .14s ease, transform .06s ease;
   }
-  .chips label:active { transform: scale(.98); }
+  .chips label:active { transform: scale(.97); }
+
+  /*
+   * Selected chips invert completely rather than tinting.
+   *
+   * A tinted background and a slightly brighter border is the usual treatment
+   * and it failed here: on a phone at arm's length, in a shop, the chosen
+   * category was almost indistinguishable from the five beside it. Filling it
+   * solid means the answer is readable at a glance and does not depend on
+   * seeing a one-pixel border colour.
+   */
   .chips input:checked + label {
-    background: var(--accent-soft); border-color: var(--accent-line); font-weight: 600;
-  }
-  .chips input:focus-visible + label { outline: 2px solid var(--focus); outline-offset: 2px; }
+    background: var(--accent); border-color: var(--accent); color: var(--accent-fg);
+    font-weight: 600;
+  }  .chips input:focus-visible + label { outline: 2px solid var(--focus); outline-offset: 2px; }
   .chips.invalid label { border-color: var(--danger); }
 
-  .stars { display: flex; gap: .25rem; }
+  .stars { display: flex; gap: .125rem; margin-left: -.25rem; }
   .stars button {
-    font-size: 2rem; line-height: 1; background: none; border: 0; cursor: pointer;
-    padding: .25rem; color: var(--muted); transition: color .1s, transform .06s ease;
-    min-width: 44px; min-height: 44px;
+    font-size: 2.125rem; line-height: 1; background: none; border: 0; cursor: pointer;
+    padding: .25rem; color: var(--border); transition: color .1s, transform .08s ease;
+    min-width: 46px; min-height: 46px;
   }
-  .stars button:active { transform: scale(.9); }
+  .stars button:active { transform: scale(.88); }
+  /* The glyph swaps from outline to solid as well, so the rating never
+     depends on colour alone. */
   .stars button.on { color: var(--star); }
 
   textarea {
-    width: 100%; min-height: 8.5rem; padding: .75rem;
+    width: 100%; min-height: 8.5rem; padding: .875rem;
     font: inherit; line-height: inherit; color: var(--fg); background: var(--field);
-    border: 1px solid var(--border); border-radius: 12px;
+    border: 1.5px solid var(--border); border-radius: 14px;
     /* No resize handle exists on touch anyway; the field auto-grows instead. */
     resize: none; overflow-y: auto;
+    transition: border-color .14s ease;
   }
+  textarea::placeholder { color: var(--muted); opacity: 1; }
+  textarea:focus { border-color: var(--accent); outline: none; }
+  textarea:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   .count { text-align: right; font-size: .75rem; color: var(--muted); margin-top: .25rem; }
   .count[hidden] { display: none; }
 
@@ -290,17 +312,6 @@ const formCss = `
      removed from the accessibility tree, and inserting the region and its text
      in the same frame is unreliable in VoiceOver and NVDA. An empty <p> with
      zero margin contributes no height. */
-  /*
-   * Khmer headings stay at 500, not 700.
-   *
-   * Kantumruy Pro Bold thickens the strokes without opening the clearance
-   * under a base consonant, so a subscript merges into the consonant above it
-   * and the whole cluster reads as a blob. 500 still comes from the Regular
-   * face and is the heaviest weight that stays legible.
-   */
-  html[lang="km"] h1,
-  html[lang="km"] .shop .place,
-  html[lang="km"] label { font-weight: 500; }
 
   .err { color: var(--danger); font-size: .875rem; margin: 0; }
   /* "Checking, one moment" is progress, not a failure. Red would tell the
