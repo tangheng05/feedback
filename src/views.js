@@ -1,4 +1,6 @@
 import { STRINGS, CATEGORIES } from './i18n.js';
+import { logoUri } from './brand.js';
+import { config } from './config.js';
 
 /**
  * Self-hosted Noto Sans Khmer, inlined rather than linked.
@@ -58,40 +60,44 @@ const baseCss = `
   html { -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
 
   :root {
-    --bg: #f4f4f5;
+    --bg: #ffffff;
     --card: #ffffff;
-    --field: #f4f4f5;
-    --fg: #18181b;
-    --muted: #64646d;
-    --line: #e4e4e7;
+    --field: #ffffff;
+    --fg: #0a0a0a;
+    --muted: #5c5c5c;
+    --line: #e5e5e5;
     /* Interactive boundaries need 3:1 (WCAG 1.4.11). The decorative --line is
-       1.27:1 and was previously used for both, which made every control look
-       like it wasn't there. */
-    --border: #94949c;
-    --accent: #0f766e;
+       far below that, so controls get their own heavier token. */
+    --border: #8a8a8a;
+    /* Black is the accent. With no colour left to carry emphasis, weight and
+       contrast have to do it, which is why the send button is solid black and
+       every other control stays outlined. */
+    --accent: #0a0a0a;
     --accent-fg: #ffffff;
-    --accent-soft: #ccfbf1;
-    --accent-line: #0d9488;
-    --star: #d97706;
-    --danger: #b91c1c;
-    --focus: #0f766e;
+    --accent-soft: #f4f4f4;
+    --accent-line: #0a0a0a;
+    --star: #0a0a0a;
+    /* Errors keep their colour. Red is the one thing on this page that must
+       not read as ordinary UI. */
+    --danger: #b3261e;
+    --focus: #0a0a0a;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #09090b;
-      --card: #18181b;
-      --field: #101012;
+      --bg: #000000;
+      --card: #0d0d0d;
+      --field: #0d0d0d;
       --fg: #fafafa;
-      --muted: #a1a1aa;
-      --line: #27272a;
-      --border: #6b6b76;
-      --accent: #2dd4bf;
-      --accent-fg: #042f2e;
-      --accent-soft: #134e4a;
-      --accent-line: #2dd4bf;
-      --star: #fbbf24;
-      --danger: #f87171;
-      --focus: #2dd4bf;
+      --muted: #a1a1a1;
+      --line: #262626;
+      --border: #7a7a7a;
+      --accent: #fafafa;
+      --accent-fg: #0a0a0a;
+      --accent-soft: #1c1c1c;
+      --accent-line: #fafafa;
+      --star: #fafafa;
+      --danger: #f2837c;
+      --focus: #fafafa;
     }
   }
 
@@ -136,8 +142,8 @@ function shell({ lang, title, body, css = '', script = '', head = '', nonce = ''
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f4f5">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#09090b">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
 <link rel="icon" href="data:,">
 <link rel="preload" as="font" type="font/woff2" href="/fonts/NotoSansKhmer.woff2" crossorigin>
 <title>${esc(title)}</title>
@@ -160,7 +166,15 @@ const formCss = `
     border-bottom: 1px solid var(--line);
     margin-bottom: 1.25rem;
   }
-  .shop { flex: 1; font-size: 1.0625rem; font-weight: 700; letter-spacing: -.01em; }
+  /* Logo and names, so a customer can see at a glance they scanned the right
+     shop's code and not a sticker someone else put on the wall. */
+  .shop { flex: 1; display: flex; align-items: center; gap: .5rem; min-width: 0; }
+  .shop .logo { height: 28px; width: auto; max-width: 88px; object-fit: contain; flex: none; }
+  .shop .names { display: flex; flex-direction: column; min-width: 0; }
+  .shop .brand { font-size: .75rem; font-weight: 600; color: var(--muted);
+                 letter-spacing: .04em; text-transform: uppercase; line-height: 1.4; }
+  .shop .place { font-size: 1.0625rem; font-weight: 700; letter-spacing: -.01em;
+                 line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .langtoggle {
     display: flex; align-items: stretch; flex: none;
@@ -190,13 +204,6 @@ const formCss = `
   }
   html[lang="en"] h1 { line-height: 1.25; }
 
-  .privacy {
-    display: inline-flex; gap: .45rem; align-items: center;
-    background: var(--field); border-radius: 999px;
-    padding: .3rem .8rem; margin: 0 0 1.5rem;
-    font-size: .75rem; color: var(--muted);
-  }
-  .privacy svg { flex: none; }
 
   fieldset { border: 0; margin: 0 0 1.75rem; padding: 0; }
   legend { padding: 0; font-size: .8125rem; font-weight: 600; margin-bottom: .625rem; }
@@ -282,10 +289,6 @@ const formCss = `
   .done .refhelp, .done .closetab { font-size: .75rem; color: var(--muted); margin-top: .5rem; }
 `;
 
-const LOCK_ICON =
-  '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
-  'stroke-width="2.5" stroke-linecap="round" aria-hidden="true">' +
-  '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
 
 export function formPage({ location, lang, turnstileSiteKey, explicitLang, nonce }) {
   const t = STRINGS[lang];
@@ -315,7 +318,13 @@ export function formPage({ location, lang, turnstileSiteKey, explicitLang, nonce
    */
   const body = `
 <header>
-  <div class="shop">${esc(location.name)}</div>
+  <div class="shop">
+    ${logoUri() ? `<img class="logo" src="${logoUri()}" alt="">` : ''}
+    <div class="names">
+      ${config.brand.name ? `<span class="brand">${esc(config.brand.name)}</span>` : ''}
+      <span class="place">${esc(location.name)}</span>
+    </div>
+  </div>
   <div class="langtoggle" role="group" data-t-aria="langLabel" aria-label="${esc(t.langLabel)}">
     <button type="button" data-lang="km" aria-pressed="${lang === 'km'}">ខ្មែរ</button>
     <button type="button" data-lang="en" aria-pressed="${lang === 'en'}">EN</button>
@@ -324,7 +333,6 @@ export function formPage({ location, lang, turnstileSiteKey, explicitLang, nonce
 
 <main class="card" id="main">
   <h1 data-t="heading">${esc(t.heading)}</h1>
-  <p class="privacy">${LOCK_ICON}<span data-t="privacy">${esc(t.privacy)}</span></p>
 
   <noscript>
     <p class="err" style="margin-bottom:.75rem">${esc(t.needJs)}</p>

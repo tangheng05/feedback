@@ -34,8 +34,6 @@ export const STRINGS = {
     messagePlaceholder: 'Tell us what happened. The more detail, the better we can fix it.',
     send: 'Send',
     sending: 'Sending…',
-    privacy:
-      'No name, no phone number, no account. Nothing you send here identifies you.',
     thanksHeading: 'Thank you',
     thanksBody: 'Your feedback has gone straight to the management team.',
     refLabel: 'Reference',
@@ -71,8 +69,6 @@ export const STRINGS = {
     messagePlaceholder: 'សូមប្រាប់យើងពីអ្វីដែលបានកើតឡើង។ កាន់តែលម្អិត យើងកាន់តែអាចដោះស្រាយបាន។',
     send: 'ផ្ញើ',
     sending: 'កំពុងផ្ញើ…',
-    privacy:
-      'គ្មានឈ្មោះ គ្មានលេខទូរស័ព្ទ គ្មានគណនី។ អ្វីដែលអ្នកផ្ញើមកមិនបញ្ជាក់អត្តសញ្ញាណអ្នកឡើយ។',
     thanksHeading: 'សូមអរគុណ',
     thanksBody: 'មតិយោបល់របស់អ្នកត្រូវបានផ្ញើទៅក្រុមគ្រប់គ្រងរួចរាល់។',
     refLabel: 'លេខយោង',
@@ -105,6 +101,12 @@ export const POSTER = {
   subEn: 'Scan to send anonymous feedback',
   footKm: 'គ្មានឈ្មោះ · គ្មានលេខទូរស័ព្ទ · ផ្ទាល់ទៅអ្នកគ្រប់គ្រង',
   footEn: 'No name · No phone number · Straight to management',
+
+  // Small caps labels on the poster. Khmer first, English under it, matching
+  // how the rest of the sheet reads.
+  locationLabel: 'LOCATION · ទីតាំង',
+  linkLabel: 'LINK · តំណ',
+  contactLabel: 'CONTACT · ទំនាក់ទំនង',
 };
 
 export const pickLang = (raw) => (LANGS.includes(raw) ? raw : DEFAULT_LANG);

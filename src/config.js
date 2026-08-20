@@ -173,6 +173,36 @@ export const config = {
     webhookPath,
   },
 
+  /*
+   * Branding shown on the poster and at the top of the customer form.
+   *
+   * These are BRAND-level, shared by every shop: the logo and company name do
+   * not change when you /add a location. The per-location name comes from the
+   * command and is rendered alongside them, so one poster reads
+   * "<brand> " + DASH + " <this shop>".
+   *
+   * All optional. Empty values simply drop that element from the layout
+   * rather than leaving a gap or a broken image.
+   */
+  brand: {
+    name: process.env.BRAND_NAME || '',
+
+    // A PNG placed in public/brand/. PNG specifically, not SVG: the same file
+    // is composited into the centre of the raster QR, which means it has to be
+    // decodable as pixels without a rasteriser.
+    logo: process.env.BRAND_LOGO || '',
+
+    // Poster colours. Defaults are a deep indigo field with a warm accent,
+    // legible in print and safely away from the QR's own black-on-white.
+    color: process.env.BRAND_COLOR || '#312E81',
+    accent: process.env.BRAND_ACCENT || '#C7D2FE',
+    highlight: process.env.BRAND_HIGHLIGHT || '#D9F04B',
+
+    // Optional contact lines under the QR. Left off unless you set them.
+    phone: process.env.BRAND_PHONE || '',
+    email: process.env.BRAND_EMAIL || '',
+  },
+
   // Timestamps in Telegram should read in shop-local time, not UTC.
   displayTimezone: process.env.DISPLAY_TIMEZONE || 'Asia/Phnom_Penh',
 

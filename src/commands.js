@@ -16,7 +16,7 @@ import {
 import * as tg from './telegram.js';
 import { isAdmin } from './auth.js';
 import { formatFeedback, statusKeyboard } from './feedback.js';
-import { qrPng, qrSvg, formUrl, posterUrl } from './qr.js';
+import { qrPng, formUrl, posterUrl } from './qr.js';
 
 // Telegram's fixed id for messages sent under the group's own identity.
 const GROUP_ANONYMOUS_BOT_ID = 1087968824;
@@ -171,18 +171,6 @@ async function cmdAdd(arg, threadId) {
     messageThreadId: threadId,
   });
 
-  // Telegram recompresses photos, which softens QR edges. The SVG is the copy
-  // to actually print from - vector, so it stays sharp at any paper size.
-  const svg = await qrSvg(slug);
-  await tg
-    .sendDocument({
-      buffer: Buffer.from(svg, 'utf8'),
-      filename: `${slug}-qr.svg`,
-      mime: 'image/svg+xml',
-      caption: 'Vector copy — use this one for printing.',
-      messageThreadId: threadId,
-    })
-    .catch((err) => console.error('[add] sendDocument failed:', err.message));
 
   return null;
 }
@@ -223,16 +211,6 @@ async function cmdQr(arg, threadId) {
     messageThreadId: threadId,
   });
 
-  const svg = await qrSvg(location.slug);
-  await tg
-    .sendDocument({
-      buffer: Buffer.from(svg, 'utf8'),
-      filename: `${location.slug}-qr.svg`,
-      mime: 'image/svg+xml',
-      caption: 'Vector copy — use this one for printing.',
-      messageThreadId: threadId,
-    })
-    .catch((err) => console.error('[qr] sendDocument failed:', err.message));
 
   return null;
 }
