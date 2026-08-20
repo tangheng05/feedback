@@ -115,17 +115,32 @@ async function cmdAdd(arg, threadId) {
   let slug;
   if (rawSlug) {
     slug = slugify(rawSlug);
-    if (getLocation(slug)) {
-      return reply(threadId, `The slug <code>${esc(slug)}</code> is already taken. Pick another.`);
-    }
   } else {
     slug = uniqueSlug(slugify(name));
+  }
+
+  /*
+   * Claim the slug BEFORE creating the topic.
+   *
+   * /add has to await Telegram in the middle. Two admins running it at the
+   * same moment would both pass a pre-await uniqueness check, both create a
+   * topic, and the loser would fail on the UNIQUE constraint — leaving an
+   * orphaned empty topic in the group with nothing pointing at it. Claiming
+   * the row first makes the slug itself the lock: the loser fails at once,
+   * before anything has been created.
+   */
+  const location = reserveLocation({ slug, name });
+  if (!location) {
+    return reply(threadId, `The slug <code>${esc(slug)}</code> is already taken. Pick another.`);
   }
 
   let topic;
   try {
     topic = await tg.createForumTopic(name);
   } catch (err) {
+    // Release the claim, or a failed attempt burns the slug and the admin
+    // retry reports 'already taken' forever.
+    deleteLocation(slug);
     console.error('[add] createForumTopic failed:', err.message);
     return reply(
       threadId,
@@ -134,11 +149,11 @@ async function cmdAdd(arg, threadId) {
     );
   }
 
-  const location = insertLocation({ slug, name, topicId: topic.message_thread_id });
+  setLocationTopic(slug, topic.message_thread_id);
 
   // A header inside the new topic, so anyone who taps into it knows what it is.
   await reply(
-    location.topic_id,
+    topic.message_thread_id,
     `📍 <b>${esc(name)}</b>\n\nFeedback scanned at this location lands here.\n${esc(formUrl(slug))}`
   ).catch((err) => console.error('[add] topic header failed:', err.message));
 
