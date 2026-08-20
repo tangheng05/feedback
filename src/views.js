@@ -227,7 +227,11 @@ const formCss = `
     font-weight: 700; letter-spacing: -.01em;
     margin: 0 0 .75rem;
   }
+  /* English headings are tightened; Khmer needs extra leading to avoid
+     subscript/descender collisions. Increase Khmer h1 leading to match the
+     document baseline used by body (1.9). */
   html[lang="en"] h1 { line-height: 1.25; }
+  html[lang="km"] h1 { line-height: 1.9; }
 
 
   fieldset { border: 0; margin: 0 0 1.75rem; padding: 0; }
