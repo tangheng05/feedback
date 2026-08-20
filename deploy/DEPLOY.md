@@ -61,8 +61,16 @@ Look for `"chat":{"id":-1001234567890,...}`. That negative number is
 
 ## 5. Prepare the server
 
-Ubuntu 22.04 or 24.04. Node 20 or 22 (Node 18 works but is end-of-life — don't
-start there).
+Ubuntu 22.04 or 24.04. **Use Node 22 LTS.**
+
+Not the newest release: `better-sqlite3` ships prebuilt binaries only for
+established versions, so on a brand-new Node it falls back to compiling from
+source and fails on a machine with no compiler (`gyp ERR! stack Error: not
+found: make`). Node 22 installs in seconds with no build step.
+
+```bash
+node -v      # if this is not v22.x, fix it before going further
+```
 
 ```bash
 # Node 22
@@ -142,6 +150,45 @@ sudo certbot --nginx -d feedback.yourdomain.com
 ```
 
 Certbot installs its own renewal timer; no cron needed.
+
+---
+
+## 7b. If your reverse proxy is on another machine
+
+Running Nginx Proxy Manager (or any proxy) on a separate host? Skip step 7
+entirely and do this instead.
+
+The app binds to `127.0.0.1` by default, which another machine cannot reach.
+Open it up, and tell it the proxy is real:
+
+```ini
+# .env
+BIND_HOST=0.0.0.0
+TRUST_PROXY=true
+```
+
+Both are required, and the second one is easy to miss. Without `TRUST_PROXY`
+the app ignores `X-Forwarded-For` and every customer looks like the proxy's
+single IP — so the tenth submission of the hour locks out the whole shop.
+
+**Then firewall the port.** With `BIND_HOST=0.0.0.0` anyone who can reach it
+supplies their own `X-Forwarded-For`, and the per-IP limit becomes free to
+bypass with a fresh fake address per request:
+
+```bash
+sudo ufw allow 22/tcp
+sudo ufw allow from <PROXY_SERVER_IP> to any port 3000 proto tcp
+sudo ufw --force enable
+sudo ufw status                     # confirm 3000 is not open to Anywhere
+```
+
+In Nginx Proxy Manager: **Proxy Hosts → Add**, forward to this server's IP on
+port 3000, scheme `http`, and enable **Block Common Exploits** plus an SSL
+certificate with **Force SSL**. Its defaults already send
+`X-Forwarded-For` correctly.
+
+`PUBLIC_BASE_URL` is still the public https address customers reach — never
+the `http://<internal-ip>:3000` the proxy talks to.
 
 ---
 

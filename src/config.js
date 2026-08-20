@@ -6,15 +6,20 @@ import { fileURLToPath } from 'node:url';
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /*
- * .env holds the real deployment values. .env.local, when present, overrides
- * them and is gitignored.
+ * Precedence: real shell environment > .env.local > .env
  *
- * The point is that trying the form on a laptop must not mean editing -- and
- * risking committing, or forgetting to restore -- the file that carries the
- * production bot token and the base URL printed on every poster.
+ * Loaded in that order with override OFF, because dotenv never replaces a
+ * variable that is already set. Order is the whole mechanism here.
+ *
+ * .env.local (gitignored) exists so trying the form on a laptop does not mean
+ * editing -- and risking committing, or forgetting to restore -- the file that
+ * carries the production bot token and the URL printed on every poster.
+ *
+ * The shell has to win over both, or `BIND_HOST=0.0.0.0 npm run dev` silently
+ * does nothing and you debug the wrong thing for an hour.
  */
+dotenv.config({ path: path.join(ROOT, '.env.local') });
 dotenv.config({ path: path.join(ROOT, '.env') });
-dotenv.config({ path: path.join(ROOT, '.env.local'), override: true });
 
 /*
  * Values shipped in .env.example.
@@ -124,6 +129,26 @@ export const config = {
    * while testing — server.js stops trusting proxy headers when you do.
    */
   bindHost: process.env.BIND_HOST || '127.0.0.1',
+
+  /*
+   * Whether X-Forwarded-For may be believed.
+   *
+   * It decides who the rate limiter thinks you are, so getting it wrong fails
+   * in one of two bad ways: trusting the header with nothing in front lets any
+   * client invent a new IP per request and walk past the limit entirely, while
+   * not trusting it behind a proxy collapses every customer onto the proxy's
+   * address and locks out a whole shop after ten submissions.
+   *
+   * Defaults to the bind: loopback means nginx is necessarily in front.
+   * Set TRUST_PROXY=true when the proxy runs on another machine -- and then
+   * firewall this port so only that machine can reach it, or the header is
+   * client-supplied again.
+   */
+  trustProxy:
+    process.env.TRUST_PROXY === undefined || process.env.TRUST_PROXY === ''
+      ? (process.env.BIND_HOST || '127.0.0.1') === '127.0.0.1' ||
+        process.env.BIND_HOST === '::1'
+      : process.env.TRUST_PROXY === 'true',
 
   telegram: {
     token: required('TELEGRAM_BOT_TOKEN'),

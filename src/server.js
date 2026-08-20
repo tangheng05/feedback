@@ -26,15 +26,11 @@ const app = express();
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 /*
- * One hop: nginx. The loopback binding below guarantees nginx is in the path,
- * so X-Forwarded-For is proxy-written and can be trusted.
- *
- * When BIND_HOST is opened up for LAN testing there is no proxy, so that
- * header becomes entirely client-supplied — trusting it there would let any
- * phone on the wifi hand us whatever IP it liked. Use the socket address.
+ * See config.trustProxy. Express uses this for req.ip and req.protocol;
+ * ratelimit.js consults the same flag before believing X-Forwarded-For, which
+ * is the decision that actually matters here.
  */
-const behindProxy = config.bindHost === '127.0.0.1' || config.bindHost === '::1';
-app.set('trust proxy', behindProxy ? 1 : 0);
+app.set('trust proxy', config.trustProxy ? 1 : 0);
 app.disable('x-powered-by');
 
 app.use(express.json({ limit: '32kb' }));
@@ -350,10 +346,17 @@ schedulePurge();
 const server = app.listen(config.port, config.bindHost, () => {
   console.log(`feedback server listening on ${config.bindHost}:${config.port}`);
   console.log(`public base url: ${config.baseUrl}`);
-  if (!behindProxy) {
+  if (config.bindHost !== '127.0.0.1' && config.bindHost !== '::1') {
     console.warn(
-      `[warn] BIND_HOST=${config.bindHost} exposes this port directly, with no nginx and no TLS. ` +
-        'Local testing only.'
+      `[warn] BIND_HOST=${config.bindHost} exposes this port directly, with no TLS. ` +
+        'Firewall it so only your proxy can reach it.'
+    );
+  }
+  if (!config.trustProxy) {
+    console.warn(
+      '[warn] TRUST_PROXY is off: X-Forwarded-For is ignored and rate limiting uses the ' +
+        'socket address. Behind a reverse proxy that counts every customer as one visitor ' +
+        '-- set TRUST_PROXY=true.'
     );
   }
   if (config.isLocalBaseUrl) {

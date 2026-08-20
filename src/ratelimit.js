@@ -23,23 +23,25 @@ export function hashIp(ip) {
 }
 
 /**
- * Take the LAST X-Forwarded-For entry, not the first.
+ * Who to rate-limit, from the request.
  *
- * A client can send its own XFF header, and nginx's $proxy_add_x_forwarded_for
- * would append the real peer address to whatever arrived — so the leftmost
- * value is attacker-controlled, and trusting it would let anyone bypass the
- * per-IP limit by sending a different fake IP every request. The rightmost
- * entry is the one a proxy wrote.
+ * Take the LAST X-Forwarded-For entry, not the first. A client can send its
+ * own XFF header, and a proxy appends the real peer to whatever arrived — so
+ * the leftmost value is attacker-controlled and trusting it would let anyone
+ * bypass the per-IP limit with a fresh fake IP per request. The rightmost
+ * entry is the one the proxy wrote.
  *
- * This only holds because the server binds to 127.0.0.1 (see server.js), so
- * nginx is necessarily in the path. Exposing the port directly would make the
- * header entirely client-supplied and this function meaningless.
+ * config.trustProxy has to be right for any of that to hold. When it is off
+ * the header is ignored completely and the socket address is used, because
+ * with no proxy in front the whole header is just something the client typed.
  */
 export function clientIp(req) {
-  const xff = req.headers['x-forwarded-for'];
-  if (typeof xff === 'string' && xff.length) {
-    const parts = xff.split(',').map((s) => s.trim()).filter(Boolean);
-    if (parts.length) return parts[parts.length - 1];
+  if (config.trustProxy) {
+    const xff = req.headers['x-forwarded-for'];
+    if (typeof xff === 'string' && xff.length) {
+      const parts = xff.split(',').map((s) => s.trim()).filter(Boolean);
+      if (parts.length) return parts[parts.length - 1];
+    }
   }
   return req.socket?.remoteAddress || 'unknown';
 }
