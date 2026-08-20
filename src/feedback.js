@@ -11,18 +11,6 @@ export const STATUS = {
   quarantined: { icon: '⚪️', label: 'QUARANTINED' },
 };
 
-const timeFmt = new Intl.DateTimeFormat('en-GB', {
-  timeZone: config.displayTimezone,
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-});
-
-export const formatTime = (unixSeconds) => timeFmt.format(new Date(unixSeconds * 1000));
-
 /**
  * Telegram rejects messages over 4096 characters.
  *
@@ -60,11 +48,25 @@ export function formatFeedback({ entry, location, handledBy }) {
 
   const head = `${status.icon} <b>${status.label}</b> · <code>#${entry.ref}</code>`;
   const meta = `${stars}${tg.esc(categoryLabel(entry.category, 'en'))}`;
-  const foot = `🕒 ${formatTime(entry.created_at)} · ${tg.esc(location.name)}`;
   const handled = handledBy ? `\n👤 ${tg.esc(handledBy)}` : '';
 
+  /*
+   * No timestamp line.
+   *
+   * It read "12 Jan 2026, 14:32 · Bak Touk" and it was working against the
+   * promise on the form. In a quiet shop a minute-accurate time is close to a
+   * name: staff can look at the till log and work out who was standing there.
+   * The location is already implied by the topic the message lands in.
+   *
+   * Be clear about the limit of this: Telegram stamps its own time on every
+   * message, so the hour is still visible. What this removes is the precise
+   * minute of SUBMISSION, which is the value that lines up with a receipt.
+   */
   // Customer text is escaped, never trusted — it arrives from a public form.
-  return `${head}\n${meta}\n\n${escapeAndFit(entry.message)}\n\n${foot}${handled}`;
+  return `${head}
+${meta}
+
+${escapeAndFit(entry.message)}${handled}`;
 }
 
 export function statusKeyboard(ref, status) {

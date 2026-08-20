@@ -209,8 +209,6 @@ export const config = {
     email: process.env.BRAND_EMAIL || '',
   },
 
-  // Timestamps in Telegram should read in shop-local time, not UTC.
-  displayTimezone: process.env.DISPLAY_TIMEZONE || 'Asia/Phnom_Penh',
 
   dbPath: path.resolve(ROOT, process.env.DB_PATH || './data/feedback.db'),
   ipHashSalt,
