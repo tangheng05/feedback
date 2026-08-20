@@ -1,0 +1,24 @@
+{
+  "name": "shop-feedback",
+  "version": "1.0.0",
+  "description": "Anonymous QR feedback for retail locations, delivered into Telegram forum topics",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "seed": "node scripts/seed.js",
+    "set-webhook": "node scripts/set-webhook.js",
+    "purge": "node scripts/purge.js",
+    "fonts": "node scripts/fetch-fonts.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.5.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "qrcode": "^1.5.4"
+  }
+}
