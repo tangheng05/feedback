@@ -32,10 +32,24 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const OUT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../public/fonts');
-const TARGET = 'NotoSansKhmer.woff2';
+const TARGET = 'KhmerUI.woff2';
 
+/*
+ * Kantumruy Pro, not Noto Sans Khmer.
+ *
+ * Noto Sans Khmer does not apply the foot-removal substitution for ញ: when the
+ * letter takes a subscript, its foot is supposed to disappear so the subscript
+ * can sit in the vacated space. Noto keeps the foot and draws the subscript
+ * straight through it, so a common word like បញ្ហា ("problem") renders as
+ * one tangled shape. Verified against the Windows text engine, which removes
+ * the foot correctly, and against Kantumruy Pro, Battambang and Hanuman, all
+ * of which also get it right.
+ *
+ * Kantumruy Pro is the pick: designed for UI and display, and correct at every
+ * weight including 700, where Noto's problem was worst.
+ */
 const CSS_URL =
-  'https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;700&display=swap';
+  'https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;500;700&display=swap';
 
 // Without a modern UA, Google serves legacy TTF instead of woff2.
 const UA =
@@ -65,7 +79,7 @@ async function main() {
 
   // A Latin-only subset is ~25 KB; the Khmer subset is ~55 KB. This assertion
   // is what stops the original bug from ever coming back silently.
-  if (buf.length < 40_000) {
+  if (buf.length < 20_000) {
     throw new Error(
       `${TARGET} is only ${buf.length} bytes — that looks like a Latin subset, not Khmer. Refusing to write it.`
     );
@@ -75,7 +89,13 @@ async function main() {
   console.log(`saved ${TARGET} (${(buf.length / 1024).toFixed(0)} KB, covers weights 400-700)`);
 
   // Remove the files the old two-weight version left behind.
-  for (const stale of ['NotoSansKhmer-Regular.woff2', 'NotoSansKhmer-Bold.woff2']) {
+  for (const stale of [
+    'NotoSansKhmer.woff2',
+    'NotoSansKhmer-Regular.woff2',
+    'NotoSansKhmer-Bold.woff2',
+    'NotoSansKhmer-Regular.ttf',
+    'NotoSansKhmer-Bold.ttf',
+  ]) {
     const p = path.join(OUT, stale);
     if (fs.existsSync(p)) {
       fs.unlinkSync(p);
@@ -100,7 +120,7 @@ async function fetchTtfs() {
   const urls = [...css.matchAll(/url\((https:[^)]+\.ttf)\)/g)].map((m) => m[1]);
   if (!urls.length) throw new Error('No TTF URLs in the Google Fonts response.');
 
-  const names = ['NotoSansKhmer-Regular.ttf', 'NotoSansKhmer-Bold.ttf'];
+  const names = ['KhmerUI-Regular.ttf', 'KhmerUI-Medium.ttf', 'KhmerUI-Bold.ttf'];
   for (let i = 0; i < Math.min(urls.length, names.length); i++) {
     const r = await fetch(urls[i], { headers: { 'user-agent': 'Mozilla/4.0' } });
     if (!r.ok) throw new Error(`${names[i]}: HTTP ${r.status}`);
