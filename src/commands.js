@@ -16,7 +16,7 @@ import {
 import * as tg from './telegram.js';
 import { isAdmin } from './auth.js';
 import { formatFeedback, statusKeyboard } from './feedback.js';
-import { qrSvg, formUrl } from './qr.js';
+import { qrPng, qrSvg, formUrl, posterUrl } from './qr.js';
 import { posterPng } from './poster.js';
 
 // Telegram's fixed id for messages sent under the group's own identity.
@@ -103,6 +103,46 @@ const HELP = `<b>Feedback bot commands</b>
 
 /* ------------------------------------------------------------ command: /add */
 
+/*
+ * The poster image, with a way back if Chromium is not usable.
+ *
+ * Rendering the sheet needs a headless browser, because it is the only text
+ * engine that shapes Khmer correctly. That browser is also the most fragile
+ * thing in the deployment: it wants about twenty system libraries, and it
+ * refuses to run its sandbox as root. When it cannot start, an admin should
+ * still get a working QR and a link they can print from — not a command
+ * that appears to do nothing.
+ */
+const firstLine = (msg) => String(msg).split(String.fromCharCode(10))[0];
+
+async function posterOrQr(slug, name) {
+  try {
+    return {
+      buffer: await posterPng({ name, qrSvg: await qrSvg(slug, { margin: 0 }) }),
+      filename: `${slug}-poster.png`,
+      degraded: false,
+    };
+  } catch (err) {
+    console.error('[poster] falling back to the plain QR:', firstLine(err.message));
+    return {
+      buffer: await qrPng(slug),
+      filename: `${slug}-qr.png`,
+      degraded: true,
+    };
+  }
+}
+
+// Template literals, with the line breaks written out: an escape sequence
+// here has been mangled by tooling more than once.
+const BREAK = String.fromCharCode(10, 10);
+
+const printLine = (slug, degraded) =>
+  degraded
+    ? BREAK +
+      '⚠️ Could not render the poster image, so this is the plain QR. ' +
+      `The printable sheet is still at ${esc(posterUrl(slug))}`
+    : BREAK + 'Print this at A5.';
+
 async function cmdAdd(arg, threadId) {
   if (!arg) {
     return reply(threadId, 'Usage: <code>/add Shop Name</code>\nOr: <code>/add Shop Name | customslug</code>');
@@ -166,19 +206,17 @@ async function cmdAdd(arg, threadId) {
    * is the printable sheet itself at 300dpi: an admin can forward it straight
    * to a print shop from Telegram without visiting anything.
    */
+  const sheet = await posterOrQr(slug, name);
+
   const caption =
-    `✅ <b>${esc(name)}</b> is live.
+    `✅ <b>${esc(name)}</b> is live.` + BREAK +
+    `Link: ${esc(formUrl(slug))}` +
+    printLine(slug, sheet.degraded) + BREAK +
+    `Feedback will arrive in the <b>${esc(name)}</b> topic.`;
 
-` +
-    `Link: ${esc(formUrl(slug))}
-
-` +
-    `Print this at A5. Feedback will arrive in the <b>${esc(name)}</b> topic.`;
-
-  const png = await posterPng({ name, qrSvg: await qrSvg(slug, { margin: 0 }) });
   await tg.sendPhoto({
-    buffer: png,
-    filename: `${slug}-poster.png`,
+    buffer: sheet.buffer,
+    filename: sheet.filename,
     caption,
     messageThreadId: threadId,
   });
@@ -213,14 +251,13 @@ async function cmdQr(arg, threadId) {
     return reply(threadId, `No location with slug <code>${esc(slug)}</code>. Try <code>/list</code>.`);
   }
 
-  const png = await posterPng({ name: location.name, qrSvg: await qrSvg(location.slug, { margin: 0 }) });
+  const sheet = await posterOrQr(location.slug, location.name);
   await tg.sendPhoto({
-    buffer: png,
-    filename: `${location.slug}-poster.png`,
-    caption: `<b>${esc(location.name)}</b>
-${esc(formUrl(location.slug))}
-
-Print this at A5.`,
+    buffer: sheet.buffer,
+    filename: sheet.filename,
+    caption:
+      `<b>${esc(location.name)}</b>` + BREAK + `${esc(formUrl(location.slug))}` +
+      printLine(location.slug, sheet.degraded),
     messageThreadId: threadId,
   });
 

@@ -75,7 +75,11 @@ node -v      # if this is not v22.x, fix it before going further
 ```bash
 # Node 22
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt-get install -y nodejs nginx
+sudo apt-get install -y nodejs nginx \
+  libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libgbm1 \
+  libgtk-3-0 libnss3 libxcomposite1 libxdamage1 libxfixes3 \
+  libxkbcommon0 libxrandr2 libasound2 libpango-1.0-0 libcairo2 \
+  fonts-liberation xdg-utils
 
 # A dedicated unprivileged user — the app never needs root
 sudo useradd --system --home /opt/feedback --shell /usr/sbin/nologin feedback
@@ -99,6 +103,37 @@ shaping uses the browser's HarfBuzz stack. Install dependencies normally with
 
 ---
 
+## 5b. Chromium's system libraries
+
+The poster image is rendered by headless Chromium. It is the only text engine
+that shapes Khmer correctly — resvg and other lightweight rasterisers place
+subscripts and pre-base vowels wrongly, which turns a word like បញ្ហា into
+an illegible blob on a printed poster.
+
+Chromium needs about twenty shared libraries that a minimal VPS image does not
+ship. Without them the poster route fails with errors like
+`libXcomposite.so.1: cannot open shared object file`:
+
+```bash
+apt-get update
+apt-get install -y   libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libatspi2.0-0   libcups2 libdrm2 libgbm1 libxkbcommon0 libxcomposite1 libxdamage1   libxfixes3 libxrandr2 libxshmfence1 libpango-1.0-0 libcairo2   libasound2t64 || apt-get install -y libasound2
+```
+
+Confirm nothing is still missing:
+
+```bash
+ldd ~/.cache/puppeteer/chrome/*/chrome-linux64/chrome | grep "not found"
+```
+
+Silence means it is ready. If the list is not empty, install what it names.
+
+> If you would rather not run Chromium at all, the system still works: `/add`
+> and `/qr` fall back to sending the plain QR image plus a link to the
+> printable page, and say so in the message. Only the ready-made poster image
+> is lost.
+
+---
+
 ## 6. Install the app
 
 ```bash
@@ -106,6 +141,7 @@ sudo -u feedback git clone <your-repo-url> /opt/feedback
 cd /opt/feedback
 sudo -u feedback npm ci --omit=dev
 sudo -u feedback npm run fonts        # downloads the Khmer fonts
+test -s public/fonts/KhmerUI.woff2   # fail deployment if the font download was skipped
 ```
 
 Create `/opt/feedback/.env` from `.env.example`:
