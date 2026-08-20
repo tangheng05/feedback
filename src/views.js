@@ -273,6 +273,19 @@ const formCss = `
   }  .chips input:focus-visible + label { outline: 2px solid var(--focus); outline-offset: 2px; }
   .chips.invalid label { border-color: var(--danger); }
 
+  /*
+   * Two even columns on a phone.
+   *
+   * Free-wrapping pills of six different Khmer lengths produce a ragged three
+   * row block that reads as clutter. A grid gives equal targets in a
+   * predictable order, which is easier to scan and easier to hit one-handed.
+   */
+  @media (max-width: 460px) {
+    .chips { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+    .chips label { justify-content: center; text-align: center; padding: 0 .625rem;
+                   font-size: .9rem; }
+  }
+
   .stars { display: flex; gap: .125rem; margin-left: -.25rem; }
   .stars button {
     font-size: 2.125rem; line-height: 1; background: none; border: 0; cursor: pointer;
@@ -302,7 +315,16 @@ const formCss = `
     width: 100%; padding: .9rem; font: inherit; font-weight: 600;
     border: 0; border-radius: 12px; background: var(--accent); color: var(--accent-fg);
     cursor: pointer; min-height: 52px;
-    position: sticky; bottom: calc(.75rem + env(safe-area-inset-bottom)); z-index: 1;
+    /*
+     * Not sticky.
+     *
+     * "position: sticky" with a bottom offset on the last element pulls it UP to stay
+     * in view, which means it floats over the siblings above it - on a phone
+     * the Send button sat directly on top of the message box, hiding the field
+     * someone was trying to type in. The form is short enough that a button at
+     * the end is reachable without it.
+     */
+    margin-bottom: env(safe-area-inset-bottom);
     transition: opacity .12s ease, transform .06s ease;
   }
   button.send:active { transform: scale(.99); }
