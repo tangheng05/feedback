@@ -44,6 +44,23 @@ const fontOpts = {
  * them. Browsers get this right, so the strings themselves stay exactly as the
  * reviewer wrote them and the workaround lives here, where the bug is.
  */
+/*
+ * Khmer never goes above weight 500 here.
+ *
+ * Noto Sans Khmer Bold thickens the strokes without opening the sidebearings
+ * or the clearance under a base consonant, so a coeng stack that is legible at
+ * 400 collides at 700: in "បញ្ហា" the subscript merges into the
+ * consonant above it and that consonant fuses with the vowel after it. It
+ * reads as a blob, and at poster size a blob is what a customer sees from a
+ * metre away.
+ *
+ * 400 and 500 both come from the Regular file, 600 and 700 from Bold, so 500
+ * is the heaviest weight that still renders the stack cleanly. Latin is
+ * unaffected and keeps whatever weight it was given.
+ */
+const KHMER = /[ក-៿]/u;
+const safeWeight = (value, weight) => (KHMER.test(value) ? Math.min(weight, 500) : weight);
+
 const spaceBeforePunct = (s) => String(s).replace(/([ក-៿])([?!])$/u, '$1 $2');
 
 const esc = (s) =>
@@ -70,7 +87,7 @@ function widthRatio(text, weight) {
 
   const probe = `<svg xmlns="http://www.w3.org/2000/svg" width="6000" height="400" viewBox="0 0 6000 400">
     <rect width="6000" height="400" fill="#fff"/>
-    <text x="20" y="280" font-family="${FONT_FAMILY}" font-size="${REF_SIZE}" font-weight="${weight}" fill="#000">${esc(spaceBeforePunct(text))}</text>
+    <text x="20" y="280" font-family="${FONT_FAMILY}" font-size="${REF_SIZE}" font-weight="${safeWeight(text, weight)}" fill="#000">${esc(spaceBeforePunct(text))}</text>
   </svg>`;
 
   let ratio = 0.55 * text.length; // only used if the probe itself fails
@@ -227,14 +244,15 @@ export function posterSvg({ name, qrSvg }) {
 function text(value, baseline, size, weight, fill) {
   return (
     `<text x="${MM_W / 2}" y="${baseline}" text-anchor="middle" font-family="${FONT_FAMILY}" ` +
-    `font-size="${size.toFixed(2)}" font-weight="${weight}" fill="${fill}">${esc(spaceBeforePunct(value))}</text>`
+    `font-size="${size.toFixed(2)}" font-weight="${safeWeight(value, weight)}" fill="${fill}">` +
+    `${esc(spaceBeforePunct(value))}</text>`
   );
 }
 
 function label(value, y, size) {
   return (
     `<text x="${MM_W / 2}" y="${(y + size).toFixed(2)}" text-anchor="middle" font-family="${FONT_FAMILY}" ` +
-    `font-size="${size.toFixed(2)}" font-weight="600" fill="#71717a" letter-spacing="0.5">${esc(value)}</text>`
+    `font-size="${size.toFixed(2)}" font-weight="${safeWeight(value, 600)}" fill="#71717a" letter-spacing="0.5">${esc(value)}</text>`
   );
 }
 

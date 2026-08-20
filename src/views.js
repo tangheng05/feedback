@@ -290,6 +290,18 @@ const formCss = `
      removed from the accessibility tree, and inserting the region and its text
      in the same frame is unreliable in VoiceOver and NVDA. An empty <p> with
      zero margin contributes no height. */
+  /*
+   * Khmer headings stay at 500, not 700.
+   *
+   * Noto Sans Khmer Bold thickens the strokes without opening the clearance
+   * under a base consonant, so a subscript merges into the consonant above it
+   * and the whole cluster reads as a blob. 500 still comes from the Regular
+   * face and is the heaviest weight that stays legible.
+   */
+  html[lang="km"] h1,
+  html[lang="km"] .shop .place,
+  html[lang="km"] label { font-weight: 500; }
+
   .err { color: var(--danger); font-size: .875rem; margin: 0; }
   /* "Checking, one moment" is progress, not a failure. Red would tell the
      customer their complaint was rejected while it is still being sent. */
