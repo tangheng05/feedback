@@ -17,9 +17,11 @@
     "peek": "node scripts/peek.js"
   },
   "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "better-sqlite3": "^11.5.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
+    "pngjs": "^7.0.0",
     "qrcode": "^1.5.4"
   }
 }

@@ -16,7 +16,8 @@ import {
 import * as tg from './telegram.js';
 import { isAdmin } from './auth.js';
 import { formatFeedback, statusKeyboard } from './feedback.js';
-import { qrPng, formUrl, posterUrl } from './qr.js';
+import { qrSvg, formUrl } from './qr.js';
+import { posterPng } from './poster.js';
 
 // Telegram's fixed id for messages sent under the group's own identity.
 const GROUP_ANONYMOUS_BOT_ID = 1087968824;
@@ -157,16 +158,27 @@ async function cmdAdd(arg, threadId) {
     `📍 <b>${esc(name)}</b>\n\nFeedback scanned at this location lands here.\n${esc(formUrl(slug))}`
   ).catch((err) => console.error('[add] topic header failed:', err.message));
 
+  /*
+   * Send the finished poster, not the bare QR.
+   *
+   * The QR on its own is not something you can put on a wall, so the old
+   * message had to link to the poster page and hope the admin opened it. This
+   * is the printable sheet itself at 300dpi: an admin can forward it straight
+   * to a print shop from Telegram without visiting anything.
+   */
   const caption =
-    `✅ <b>${esc(name)}</b> is live.\n\n` +
-    `Link: ${esc(formUrl(slug))}\n` +
-    `Printable poster: ${esc(posterUrl(slug))}\n\n` +
-    `Print the poster (A5) or use the PNG below. Feedback will arrive in the <b>${esc(name)}</b> topic.`;
+    `✅ <b>${esc(name)}</b> is live.
 
-  const png = await qrPng(slug);
+` +
+    `Link: ${esc(formUrl(slug))}
+
+` +
+    `Print this at A5. Feedback will arrive in the <b>${esc(name)}</b> topic.`;
+
+  const png = posterPng({ name, qrSvg: await qrSvg(slug) });
   await tg.sendPhoto({
     buffer: png,
-    filename: `${slug}-qr.png`,
+    filename: `${slug}-poster.png`,
     caption,
     messageThreadId: threadId,
   });
@@ -201,13 +213,14 @@ async function cmdQr(arg, threadId) {
     return reply(threadId, `No location with slug <code>${esc(slug)}</code>. Try <code>/list</code>.`);
   }
 
-  const png = await qrPng(location.slug);
+  const png = posterPng({ name: location.name, qrSvg: await qrSvg(location.slug) });
   await tg.sendPhoto({
     buffer: png,
-    filename: `${location.slug}-qr.png`,
-    caption:
-      `<b>${esc(location.name)}</b>\n${esc(formUrl(location.slug))}\n\n` +
-      `Printable poster: ${esc(posterUrl(location.slug))}`,
+    filename: `${location.slug}-poster.png`,
+    caption: `<b>${esc(location.name)}</b>
+${esc(formUrl(location.slug))}
+
+Print this at A5.`,
     messageThreadId: threadId,
   });
 

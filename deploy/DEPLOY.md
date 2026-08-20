@@ -319,8 +319,15 @@ or TLS mistake shows up that localhost testing hides.
 cd /opt/feedback
 sudo -u feedback git pull
 sudo -u feedback npm ci --omit=dev
-sudo systemctl restart feedback
+sudo -u feedback npm run fonts      # re-run: new font files are added over time
+sudo systemctl restart feedback     # or: pm2 restart feedback
 ```
+
+> `npm run fonts` fetches the TTFs the poster renderer needs, not just the
+> woff2 the browser uses. Skip it after an update that adds them and the
+> poster image comes out with **no text on it at all** — the renderer is
+> deliberately not allowed to fall back to system fonts, because a VPS has a
+> different set from a laptop and the substitute would print Khmer as boxes.
 
 ### Backups
 
@@ -377,6 +384,16 @@ means the submission is safe in the database and only the Telegram push failed
 
 **Khmer text looks cramped or clipped**
 The fonts didn't download. Run `npm run fonts` and restart.
+
+**The poster image has no text on it**
+Same cause, different file: `public/fonts/NotoSansKhmer-Regular.ttf` is
+missing. `npm run fonts` fetches it. `ls public/fonts` should show two `.ttf`
+files alongside the `.woff2`.
+
+**`npm ci` fails on @resvg/resvg-js**
+It ships prebuilt binaries for common platforms and needs no compiler. If your
+architecture is not covered, the poster PNG is the only thing that breaks —
+the form, the QR images and Telegram delivery all work without it.
 
 **A customer says the QR doesn't work**
 Open `https://feedback.yourdomain.com/f/<slug>` yourself. If that loads, the

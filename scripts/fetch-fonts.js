@@ -1,6 +1,13 @@
 #!/usr/bin/env node
 /**
- * Downloads the Khmer subset of Noto Sans Khmer into public/fonts/.
+ * Downloads Noto Sans Khmer into public/fonts/ - both the woff2 the browser
+ * uses and the TTFs the poster renderer needs.
+ *
+ * The TTFs are not optional. resvg rasterises the poster and cannot read
+ * woff2, and it is configured not to fall back to system fonts: a VPS has a
+ * different font set from a laptop, and silently substituting a face with no
+ * Khmer glyphs would print a wall poster full of empty boxes. Without these
+ * files the poster PNG comes out with no text on it at all.
  *
  * Run once at setup. The file is gitignored — binary assets don't belong in
  * this repo's history.
@@ -76,7 +83,36 @@ async function main() {
     }
   }
 
+  await fetchTtfs();
+
   console.log('\nFonts ready. Restart the server to pick them up.');
+}
+
+/*
+ * Google serves TTF instead of woff2 when the User-Agent looks ancient. That
+ * quirk is the whole mechanism here: same URL, same family, different format.
+ */
+async function fetchTtfs() {
+  const res = await fetch(CSS_URL, { headers: { 'user-agent': 'Mozilla/4.0' } });
+  if (!res.ok) throw new Error(`Google Fonts CSS (ttf): HTTP ${res.status}`);
+  const css = await res.text();
+
+  const urls = [...css.matchAll(/url\((https:[^)]+\.ttf)\)/g)].map((m) => m[1]);
+  if (!urls.length) throw new Error('No TTF URLs in the Google Fonts response.');
+
+  const names = ['NotoSansKhmer-Regular.ttf', 'NotoSansKhmer-Bold.ttf'];
+  for (let i = 0; i < Math.min(urls.length, names.length); i++) {
+    const r = await fetch(urls[i], { headers: { 'user-agent': 'Mozilla/4.0' } });
+    if (!r.ok) throw new Error(`${names[i]}: HTTP ${r.status}`);
+    const buf = Buffer.from(await r.arrayBuffer());
+    // These carry the full Khmer repertoire, so they are ~100 KB. Anything
+    // much smaller is a Latin-only file and would print boxes.
+    if (buf.length < 60_000) {
+      throw new Error(`${names[i]} is only ${buf.length} bytes - that is not the Khmer face.`);
+    }
+    fs.writeFileSync(path.join(OUT, names[i]), buf);
+    console.log(`saved ${names[i]} (${(buf.length / 1024).toFixed(0)} KB, for the printed poster)`);
+  }
 }
 
 main().catch((err) => {

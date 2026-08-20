@@ -5,7 +5,8 @@ import { config, ROOT } from './config.js';
 import { getLocation, claimUpdate } from './db.js';
 import { CATEGORY_IDS, STRINGS, pickLang, langFromHeader } from './i18n.js';
 import { formPage, noticePage } from './views.js';
-import { qrPng, qrSvg, posterHtml } from './qr.js';
+import { qrPng, qrSvg } from './qr.js';
+import { posterHtml, posterPng } from './poster.js';
 import { logoAsset, LOGO_URL, LOGO_DARK_URL } from './brand.js';
 import { hashIp, clientIp, consume, schedulePurge } from './ratelimit.js';
 import { submitFeedback, noticeThrottled } from './feedback.js';
@@ -288,14 +289,42 @@ app.get('/qr/:slug.svg', wrap(async (req, res) => {
     .send(await qrSvg(location.slug));
 }));
 
+/*
+ * The poster as a print-ready image.
+ *
+ * Rasterising an A5 sheet at 300dpi takes a few hundred milliseconds on Node's
+ * single thread, and the slug is printed on a public wall - so this is cached
+ * like the QR images rather than re-rendered per request.
+ */
+const posterPngCache = new Map();
+
+app.get('/poster/:slug.png', wrap(async (req, res) => {
+  const location = getLocation(req.params.slug);
+  if (!location) return res.status(404).send('Not found');
+  if (!posterPngCache.has(location.slug)) {
+    posterPngCache.set(
+      location.slug,
+      posterPng({ name: location.name, qrSvg: await qrSvg(location.slug) })
+    );
+  }
+  res.type('png').set('Cache-Control', 'public, max-age=86400').send(posterPngCache.get(location.slug));
+}));
+
+
+/*
+ * The .png route must be registered BEFORE /poster/:slug.
+ *
+ * `:slug` matches everything up to the next slash, ".png" included, so with
+ * the other order every request for the image resolved to slug
+ * "takhmauy.png", found no location, and 404'd.
+ */
 app.get('/poster/:slug', wrap(async (req, res) => {
   const location = getLocation(req.params.slug);
   if (!location) return res.status(404).send('Not found');
-  const svg = await qrSvg(location.slug);
   res
     .type('html')
     .set('Cache-Control', 'public, max-age=3600')
-    .send(posterHtml({ name: location.name, slug: location.slug, svg, nonce: res.locals.nonce }));
+    .send(posterHtml({ name: location.name, qrSvg: await qrSvg(location.slug), nonce: res.locals.nonce }));
 }));
 
 /* --------------------------------------------------------- telegram webhook */
