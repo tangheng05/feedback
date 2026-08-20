@@ -176,6 +176,9 @@ if (config.brand.logoDark && !dark.web) {
 export const hasLogo = () => light.png !== null;
 export const logoPixels = () => light.png;
 
+/** width / height of the artwork, so the QR's white plate can match it. */
+export const logoAspect = () => (light.png ? light.png.width / light.png.height : 1);
+
 /* ------------------------------------------------------- served to browsers */
 
 /*

@@ -3,7 +3,7 @@ import { PNG } from 'pngjs';
 import { config } from './config.js';
 import { POSTER } from './i18n.js';
 import { fontFaceCss } from './views.js';
-import { hasLogo, logoPixels, logoDataUri } from './brand.js';
+import { hasLogo, logoPixels, logoDataUri, logoAspect } from './brand.js';
 
 export const formUrl = (slug) => `${config.baseUrl}/f/${slug}`;
 export const posterUrl = (slug) => `${config.baseUrl}/poster/${slug}`;
@@ -24,15 +24,21 @@ export const posterUrl = (slug) => `${config.baseUrl}/poster/${slug}`;
 const qrOpts = () => ({ errorCorrectionLevel: hasLogo() ? 'H' : 'Q', margin: 4 });
 
 /*
- * How much of the QR the logo may cover, as a fraction of its width.
+ * How wide the logo may be, as a fraction of the QR's width.
  *
- * 0.18 of the width is ~3.2% of the area, well inside what 'H' can rebuild.
- * The temptation is to go bigger because it looks better on screen; don't. The
- * budget is shared with scuffs, glare and a phone camera at an angle, and a
- * code that scans on a clean screen can still fail on a wall.
+ * The temptation is to go bigger because it looks better on screen; the budget
+ * is shared with scuffs, glare and a phone camera at an angle, and a code that
+ * scans on a clean screen can still fail on a wall.
+ *
+ * The plate behind it takes the LOGO's aspect ratio rather than being square.
+ * A wordmark is typically 2:1 or wider, so a square plate erases a tall band
+ * of modules that the artwork never touches - for a 2.2:1 logo that is a third
+ * more damage than necessary, spent on empty white. Fitting the plate to the
+ * artwork buys back enough headroom to draw the logo larger and still erase
+ * less of the code than a square plate at the smaller size.
  */
-const LOGO_WIDTH_RATIO = 0.18;
-const LOGO_PAD_RATIO = 0.22; // white plate around the logo, as a fraction of its box
+const LOGO_WIDTH_RATIO = 0.22;
+const LOGO_PAD_RATIO = 0.14; // white margin around the logo, as a fraction of its width
 
 const pngCache = new Map();
 const svgCache = new Map();
@@ -59,15 +65,19 @@ function stampLogo(qr) {
   const logo = logoPixels();
   if (!logo) return qr;
 
-  const box = Math.round(qr.width * LOGO_WIDTH_RATIO);
-  const pad = Math.round(box * LOGO_PAD_RATIO);
-  const plate = box + pad * 2;
-  const plateX = Math.round((qr.width - plate) / 2);
-  const plateY = Math.round((qr.height - plate) / 2);
+  // Fit the artwork to the allowed width, keeping its proportions.
+  const drawW = Math.round(qr.width * LOGO_WIDTH_RATIO);
+  const drawH = Math.max(1, Math.round((drawW * logo.height) / logo.width));
+  const pad = Math.round(drawW * LOGO_PAD_RATIO);
 
-  // White plate first.
-  for (let y = plateY; y < plateY + plate; y++) {
-    for (let x = plateX; x < plateX + plate; x++) {
+  const plateW = drawW + pad * 2;
+  const plateH = drawH + pad * 2;
+  const plateX = Math.round((qr.width - plateW) / 2);
+  const plateY = Math.round((qr.height - plateH) / 2);
+
+  // White plate first, sized to the artwork rather than to a square.
+  for (let y = plateY; y < plateY + plateH; y++) {
+    for (let x = plateX; x < plateX + plateW; x++) {
       const i = (qr.width * y + x) << 2;
       qr.data[i] = 255;
       qr.data[i + 1] = 255;
@@ -76,27 +86,41 @@ function stampLogo(qr) {
     }
   }
 
-  // Then the logo, scaled to fit the box while keeping its aspect ratio.
-  const scale = Math.min(box / logo.width, box / logo.height);
-  const drawW = Math.max(1, Math.round(logo.width * scale));
-  const drawH = Math.max(1, Math.round(logo.height * scale));
-  const drawX = plateX + pad + Math.round((box - drawW) / 2);
-  const drawY = plateY + pad + Math.round((box - drawH) / 2);
+  const drawX = plateX + pad;
+  const drawY = plateY + pad;
+  const sxStep = logo.width / drawW;
+  const syStep = logo.height / drawH;
 
   for (let y = 0; y < drawH; y++) {
+    // Box filter, matching brand.js: the source is ~1100px wide going into a
+    // ~260px box, and nearest-neighbour drops most of a fine script face,
+    // leaving the thin strokes broken.
+    const sy0 = Math.floor(y * syStep);
+    const sy1 = Math.max(sy0 + 1, Math.floor((y + 1) * syStep));
     for (let x = 0; x < drawW; x++) {
-      const sx = Math.min(logo.width - 1, Math.floor(x / scale));
-      const sy = Math.min(logo.height - 1, Math.floor(y / scale));
-      const si = (logo.width * sy + sx) << 2;
-      const di = (qr.width * (drawY + y) + (drawX + x)) << 2;
+      const sx0 = Math.floor(x * sxStep);
+      const sx1 = Math.max(sx0 + 1, Math.floor((x + 1) * sxStep));
 
-      // Alpha-composite over white, so transparency becomes white rather than
-      // black. Compositing over the QR itself would leave modules showing
-      // through the logo and confuse the threshold pass.
-      const a = logo.data[si + 3] / 255;
-      qr.data[di] = Math.round(logo.data[si] * a + 255 * (1 - a));
-      qr.data[di + 1] = Math.round(logo.data[si + 1] * a + 255 * (1 - a));
-      qr.data[di + 2] = Math.round(logo.data[si + 2] * a + 255 * (1 - a));
+      let r = 0, g = 0, b = 0, a = 0, n = 0;
+      for (let sy = sy0; sy < sy1 && sy < logo.height; sy++) {
+        for (let sx = sx0; sx < sx1 && sx < logo.width; sx++) {
+          const si = (logo.width * sy + sx) << 2;
+          const alpha = logo.data[si + 3] / 255;
+          r += logo.data[si] * alpha;
+          g += logo.data[si + 1] * alpha;
+          b += logo.data[si + 2] * alpha;
+          a += alpha;
+          n++;
+        }
+      }
+
+      // Composite over white, so transparency becomes white rather than black
+      // and the plate stays clean for the scanner's threshold pass.
+      const cov = a / n;
+      const di = (qr.width * (drawY + y) + (drawX + x)) << 2;
+      qr.data[di] = Math.round(r / n + 255 * (1 - cov));
+      qr.data[di + 1] = Math.round(g / n + 255 * (1 - cov));
+      qr.data[di + 2] = Math.round(b / n + 255 * (1 - cov));
       qr.data[di + 3] = 255;
     }
   }
@@ -124,13 +148,17 @@ export async function qrSvg(slug) {
       const vb = svg.match(/viewBox="0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)"/);
       const w = vb ? Number(vb[1]) : 0;
       if (w > 0) {
-        const box = w * LOGO_WIDTH_RATIO;
-        const pad = box * LOGO_PAD_RATIO;
-        const plate = box + pad * 2;
-        const p = (w - plate) / 2;
+        const ratio = logoAspect();
+        const drawW = w * LOGO_WIDTH_RATIO;
+        const drawH = drawW / ratio;
+        const pad = drawW * LOGO_PAD_RATIO;
+        const plateW = drawW + pad * 2;
+        const plateH = drawH + pad * 2;
+        const px = (w - plateW) / 2;
+        const py = (w - plateH) / 2;
         const overlay =
-          `<rect x="${p}" y="${p}" width="${plate}" height="${plate}" fill="#ffffff"/>` +
-          `<image x="${p + pad}" y="${p + pad}" width="${box}" height="${box}" ` +
+          `<rect x="${px}" y="${py}" width="${plateW}" height="${plateH}" fill="#ffffff"/>` +
+          `<image x="${px + pad}" y="${py + pad}" width="${drawW}" height="${drawH}" ` +
           `preserveAspectRatio="xMidYMid meet" href="${logoDataUri()}"/>`;
         svg = svg.replace('</svg>', `${overlay}</svg>`);
       }
