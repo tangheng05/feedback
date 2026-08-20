@@ -25,22 +25,26 @@ export function hashIp(ip) {
 /**
  * Who to rate-limit, from the request.
  *
- * Take the LAST X-Forwarded-For entry, not the first. A client can send its
- * own XFF header, and a proxy appends the real peer to whatever arrived — so
- * the leftmost value is attacker-controlled and trusting it would let anyone
- * bypass the per-IP limit with a fresh fake IP per request. The rightmost
- * entry is the one the proxy wrote.
+ * Counts config.trustProxy hops back from the RIGHT of X-Forwarded-For. Each
+ * proxy appends the address it received from, so the rightmost entries were
+ * written by infrastructure while anything further left may have been typed
+ * by the client — which is why a fixed offset from the right cannot be
+ * fooled by prepending a fake address, and why the leftmost entry (the usual
+ * choice) is a free bypass of the per-IP limit.
  *
- * config.trustProxy has to be right for any of that to hold. When it is off
- * the header is ignored completely and the socket address is used, because
- * with no proxy in front the whole header is just something the client typed.
+ * With no proxy the header is ignored entirely: there is nothing in front to
+ * have written it, so every part of it is client-supplied.
  */
 export function clientIp(req) {
-  if (config.trustProxy) {
+  const hops = config.trustProxy;
+  if (hops > 0) {
     const xff = req.headers['x-forwarded-for'];
     if (typeof xff === 'string' && xff.length) {
       const parts = xff.split(',').map((s) => s.trim()).filter(Boolean);
-      if (parts.length) return parts[parts.length - 1];
+      // Clamp: a request that reached us with fewer hops than configured (a
+      // health check straight to the port) must not read off the front.
+      const ip = parts[Math.max(0, parts.length - hops)];
+      if (ip) return ip;
     }
   }
   return req.socket?.remoteAddress || 'unknown';

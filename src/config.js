@@ -131,24 +131,40 @@ export const config = {
   bindHost: process.env.BIND_HOST || '127.0.0.1',
 
   /*
-   * Whether X-Forwarded-For may be believed.
+   * How many proxies sit in front of us, i.e. how far to count back from the
+   * right of X-Forwarded-For to find the customer.
+
+   * Counting from the RIGHT is what makes this safe. Each proxy appends the
+   * address it received from, so the rightmost entries are written by
+   * infrastructure and the leftmost can be anything the client typed. Taking
+   * the leftmost would let anyone mint a fresh IP per request and walk past
+   * the per-IP limit; counting back a fixed number of hops cannot be fooled by
+   * prepending junk.
    *
-   * It decides who the rate limiter thinks you are, so getting it wrong fails
-   * in one of two bad ways: trusting the header with nothing in front lets any
-   * client invent a new IP per request and walk past the limit entirely, while
-   * not trusting it behind a proxy collapses every customer onto the proxy's
-   * address and locks out a whole shop after ten submissions.
+   *   0  no proxy      trust nothing, use the socket address
+   *   1  nginx / NPM alone
+   *   2  Cloudflare (orange cloud) in front of nginx / NPM
    *
-   * Defaults to the bind: loopback means nginx is necessarily in front.
-   * Set TRUST_PROXY=true when the proxy runs on another machine -- and then
-   * firewall this port so only that machine can reach it, or the header is
-   * client-supplied again.
+   * Both mistakes hurt: too high and one forged entry becomes the identity,
+   * too low and every customer collapses onto the proxy's own address and the
+   * tenth submission of the hour locks out a whole shop.
+   *
+   * Defaults to 1 when bound to loopback (nginx is necessarily in front), 0
+   * otherwise. `true` and `false` are accepted as 1 and 0.
    */
-  trustProxy:
-    process.env.TRUST_PROXY === undefined || process.env.TRUST_PROXY === ''
-      ? (process.env.BIND_HOST || '127.0.0.1') === '127.0.0.1' ||
-        process.env.BIND_HOST === '::1'
-      : process.env.TRUST_PROXY === 'true',
+  trustProxy: (() => {
+    const raw = (process.env.TRUST_PROXY || '').trim().toLowerCase();
+    if (raw === '') {
+      const bind = process.env.BIND_HOST || '127.0.0.1';
+      return bind === '127.0.0.1' || bind === '::1' ? 1 : 0;
+    }
+    if (raw === 'true') return 1;
+    if (raw === 'false') return 0;
+    if (!/^\d+$/.test(raw)) {
+      throw new Error(`TRUST_PROXY must be a hop count, or true/false. Got "${process.env.TRUST_PROXY}".`);
+    }
+    return Number.parseInt(raw, 10);
+  })(),
 
   telegram: {
     token: required('TELEGRAM_BOT_TOKEN'),

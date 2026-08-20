@@ -30,7 +30,7 @@ const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).cat
  * ratelimit.js consults the same flag before believing X-Forwarded-For, which
  * is the decision that actually matters here.
  */
-app.set('trust proxy', config.trustProxy ? 1 : 0);
+app.set('trust proxy', config.trustProxy);
 app.disable('x-powered-by');
 
 app.use(express.json({ limit: '32kb' }));
@@ -354,10 +354,11 @@ const server = app.listen(config.port, config.bindHost, () => {
   }
   if (!config.trustProxy) {
     console.warn(
-      '[warn] TRUST_PROXY is off: X-Forwarded-For is ignored and rate limiting uses the ' +
-        'socket address. Behind a reverse proxy that counts every customer as one visitor ' +
-        '-- set TRUST_PROXY=true.'
+      '[warn] TRUST_PROXY=0: X-Forwarded-For is ignored and rate limiting uses the socket ' +
+        'address. Behind a reverse proxy that counts every customer as one visitor.'
     );
+  } else {
+    console.log(`trusting ${config.trustProxy} proxy hop(s) for the client address`);
   }
   if (config.isLocalBaseUrl) {
     console.warn('[warn] PUBLIC_BASE_URL is a local address, so any QR generated now works only on this network.');

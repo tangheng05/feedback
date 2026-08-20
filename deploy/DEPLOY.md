@@ -164,12 +164,30 @@ Open it up, and tell it the proxy is real:
 ```ini
 # .env
 BIND_HOST=0.0.0.0
-TRUST_PROXY=true
+TRUST_PROXY=1
 ```
 
-Both are required, and the second one is easy to miss. Without `TRUST_PROXY`
-the app ignores `X-Forwarded-For` and every customer looks like the proxy's
-single IP — so the tenth submission of the hour locks out the whole shop.
+Both are required, and the second one is easy to miss.
+
+`TRUST_PROXY` is the number of proxies in front of the app, and it decides
+which entry of `X-Forwarded-For` is treated as the customer:
+
+| Your setup | Value |
+|---|---|
+| Nothing in front (local testing) | `0` |
+| nginx or NPM alone | `1` |
+| **Cloudflare (orange cloud) in front of nginx / NPM** | **`2`** |
+
+Count every proxy, including Cloudflare. Set it too low and every customer
+collapses onto the proxy's own address, so the tenth submission of the hour
+locks out the whole shop; set it too high and a forged header becomes the
+identity, which is a free bypass of the per-IP limit.
+
+Check it after starting — the log says how many hops it is counting:
+
+```
+trusting 2 proxy hop(s) for the client address
+```
 
 **Then firewall the port.** With `BIND_HOST=0.0.0.0` anyone who can reach it
 supplies their own `X-Forwarded-For`, and the per-IP limit becomes free to
