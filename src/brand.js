@@ -152,11 +152,23 @@ const light = readLogo(config.brand.logo, { needPixels: true });
 const dark = readLogo(config.brand.logoDark, { needPixels: false });
 
 const kb = (b) => (b ? `${(b.length / 1024).toFixed(0)} KB` : '-');
-if (light.web) {
+if (light.web || dark.web) {
   console.log(
-    `[brand] logo ${light.png ? `${light.png.width}x${light.png.height} ` : ''}` +
-      `-> web ${kb(light.web)}${dark.web ? `, dark variant -> web ${kb(dark.web)}` : ''}`
+    `[brand] logo${light.web ? ` ${kb(light.web)}` : ' -'}` +
+      `${dark.web ? `, dark variant ${kb(dark.web)}` : ''}`
   );
+}
+
+// Configured but absent is the interesting case: silence would leave an admin
+// staring at a page with no logo and no idea which of the two paths is wrong.
+if (config.brand.logo && !light.web) {
+  console.error(
+    `[brand] BRAND_LOGO is set to "${config.brand.logo}" but nothing loaded from it. ` +
+      'The poster and the QR need this file specifically - check the path and that it is a PNG.'
+  );
+}
+if (config.brand.logoDark && !dark.web) {
+  console.error(`[brand] BRAND_LOGO_DARK is set to "${config.brand.logoDark}" but nothing loaded from it.`);
 }
 
 /* ------------------------------------------------- the QR overlay (pixels) */
@@ -173,9 +185,21 @@ export const logoPixels = () => light.png;
 export const LOGO_URL = '/brand/logo';
 export const LOGO_DARK_URL = '/brand/logo-dark';
 
-export const logoUrl = () => (light.web ? LOGO_URL : '');
-export const logoDarkUrl = () => (dark.web ? LOGO_DARK_URL : logoUrl());
-export const hasDarkLogo = () => Boolean(dark.web);
+/*
+ * Each side falls back to the other.
+ *
+ * Gating the header on the light variant alone meant that if only
+ * BRAND_LOGO_DARK loaded - a typo in one path, one file not copied to the
+ * server - the page rendered no logo at all, while the working file sat there
+ * being served correctly. A wrong-contrast logo is a visible problem someone
+ * fixes in a minute; a missing one looks like the feature was never built.
+ */
+export const logoUrl = () => (light.web ? LOGO_URL : dark.web ? LOGO_DARK_URL : '');
+export const logoDarkUrl = () => (dark.web ? LOGO_DARK_URL : light.web ? LOGO_URL : '');
+export const hasAnyLogo = () => Boolean(light.web || dark.web);
+
+/** True only when the two files really differ, so the CSS swap is worth it. */
+export const hasDarkLogo = () => Boolean(light.web && dark.web);
 
 export const logoAsset = (variant) => (variant === 'dark' ? dark : light);
 

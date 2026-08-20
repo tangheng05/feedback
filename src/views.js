@@ -1,5 +1,5 @@
 import { STRINGS, CATEGORIES } from './i18n.js';
-import { logoUrl, logoDarkUrl, hasDarkLogo } from './brand.js';
+import { logoUrl, logoDarkUrl, hasDarkLogo, hasAnyLogo } from './brand.js';
 import { config } from './config.js';
 
 /**
@@ -168,14 +168,32 @@ const formCss = `
   }
   /* Logo and names, so a customer can see at a glance they scanned the right
      shop's code and not a sticker someone else put on the wall. */
-  .shop { flex: 1; display: flex; align-items: center; gap: .5rem; min-width: 0; }
-  .shop .logo { height: 28px; width: auto; max-width: 88px; object-fit: contain; flex: none; }
-  /* Only one of the pair is ever displayed. Both are inlined as data URIs, so
-     the hidden one costs no request - just bytes already in the HTML. */
+  .shop { flex: 1; display: flex; align-items: center; gap: .625rem; min-width: 0; }
+  .shop .logo {
+    height: 34px; width: auto; max-width: 128px; object-fit: contain;
+    object-position: left center; flex: none;
+  }
+  /* A divider instead of more whitespace: the logo and the location are two
+     different kinds of thing, and at this size a gap alone reads as one
+     lockup. */
+  .shop .logo + .place { padding-left: .625rem; border-left: 1px solid var(--line); }
+  .shop .names { display: flex; flex-direction: column; min-width: 0; }
+  .shop .brand { font-size: .75rem; font-weight: 600; color: var(--muted);
+                 letter-spacing: .04em; text-transform: uppercase; line-height: 1.4; }
+  .shop .place { font-size: 1rem; font-weight: 700; letter-spacing: -.01em;
+                 line-height: 1.35; min-width: 0;
+                 overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Only one of the pair is ever shown. Both URLs are cached by the phone, so
+     the hidden one costs nothing after the first visit. */
   .shop .logo.dark { display: none; }
   @media (prefers-color-scheme: dark) {
     .shop .logo.light { display: none; }
     .shop .logo.dark { display: block; }
+  }
+  /* A wordmark plus a long shop name plus the language toggle will not fit a
+     small phone. The logo keeps its size; the name is what gives way. */
+  @media (max-width: 380px) {
+    .shop .logo { max-width: 96px; }
   }
   .shop .names { display: flex; flex-direction: column; min-width: 0; }
   .shop .brand { font-size: .75rem; font-weight: 600; color: var(--muted);
@@ -327,20 +345,22 @@ export function formPage({ location, lang, turnstileSiteKey, explicitLang, nonce
 <header>
   <div class="shop">
     ${
-      logoUrl()
-        ? hasDarkLogo()
-          // Two <img> swapped by CSS rather than one src chosen on the server:
-          // the theme is the phone's, and it can change after the page is
-          // served (system theme switching at sunset, for one).
-          ? `<img class="logo light" src="${logoUrl()}" alt="">` +
-            `<img class="logo dark" src="${logoDarkUrl()}" alt="">`
-          : `<img class="logo" src="${logoUrl()}" alt="">`
-        : ''
+      hasAnyLogo()
+        // A wordmark logo already says the company name. Printing it again as
+        // text beside the image is the same word twice, and it crowds the
+        // location name, which is the part a customer actually needs to check.
+        ? (hasDarkLogo()
+            // Two <img> swapped in CSS rather than one src chosen on the
+            // server: the theme belongs to the phone and can change after the
+            // page was served.
+            ? `<img class="logo light" src="${logoUrl()}" alt="${esc(config.brand.name)}">` +
+              `<img class="logo dark" src="${logoDarkUrl()}" alt="${esc(config.brand.name)}">`
+            : `<img class="logo" src="${logoUrl()}" alt="${esc(config.brand.name)}">`) +
+          `<span class="place">${esc(location.name)}</span>`
+        : `<div class="names">` +
+          (config.brand.name ? `<span class="brand">${esc(config.brand.name)}</span>` : '') +
+          `<span class="place">${esc(location.name)}</span></div>`
     }
-    <div class="names">
-      ${config.brand.name ? `<span class="brand">${esc(config.brand.name)}</span>` : ''}
-      <span class="place">${esc(location.name)}</span>
-    </div>
   </div>
   <div class="langtoggle" role="group" data-t-aria="langLabel" aria-label="${esc(t.langLabel)}">
     <button type="button" data-lang="km" aria-pressed="${lang === 'km'}">ខ្មែរ</button>
