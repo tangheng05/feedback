@@ -3,7 +3,7 @@ import { PNG } from 'pngjs';
 import { config } from './config.js';
 import { POSTER } from './i18n.js';
 import { fontFaceCss } from './views.js';
-import { hasLogo, logoPixels, logoUri } from './brand.js';
+import { hasLogo, logoPixels, logoDataUri } from './brand.js';
 
 export const formUrl = (slug) => `${config.baseUrl}/f/${slug}`;
 export const posterUrl = (slug) => `${config.baseUrl}/poster/${slug}`;
@@ -131,7 +131,7 @@ export async function qrSvg(slug) {
         const overlay =
           `<rect x="${p}" y="${p}" width="${plate}" height="${plate}" fill="#ffffff"/>` +
           `<image x="${p + pad}" y="${p + pad}" width="${box}" height="${box}" ` +
-          `preserveAspectRatio="xMidYMid meet" href="${logoUri()}"/>`;
+          `preserveAspectRatio="xMidYMid meet" href="${logoDataUri()}"/>`;
         svg = svg.replace('</svg>', `${overlay}</svg>`);
       }
     }
@@ -160,7 +160,7 @@ export function posterHtml({ name, slug, svg, nonce = '' }) {
   const n = nonce ? ` nonce="${esc(nonce)}"` : '';
   const url = formUrl(slug).replace(/^https?:\/\//, '');
   const b = config.brand;
-  const logo = logoUri();
+  const logo = logoDataUri();
 
   const contact = [b.phone, b.email].filter(Boolean);
 

@@ -8,3 +8,5 @@ data/*.db-shm
 public/fonts/*.woff2
 .env.local
 logs/
+public/brand/*
+!public/brand/.gitkeep

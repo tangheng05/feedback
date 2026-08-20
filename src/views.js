@@ -1,5 +1,5 @@
 import { STRINGS, CATEGORIES } from './i18n.js';
-import { logoUri } from './brand.js';
+import { logoUrl, logoDarkUrl, hasDarkLogo } from './brand.js';
 import { config } from './config.js';
 
 /**
@@ -170,6 +170,13 @@ const formCss = `
      shop's code and not a sticker someone else put on the wall. */
   .shop { flex: 1; display: flex; align-items: center; gap: .5rem; min-width: 0; }
   .shop .logo { height: 28px; width: auto; max-width: 88px; object-fit: contain; flex: none; }
+  /* Only one of the pair is ever displayed. Both are inlined as data URIs, so
+     the hidden one costs no request - just bytes already in the HTML. */
+  .shop .logo.dark { display: none; }
+  @media (prefers-color-scheme: dark) {
+    .shop .logo.light { display: none; }
+    .shop .logo.dark { display: block; }
+  }
   .shop .names { display: flex; flex-direction: column; min-width: 0; }
   .shop .brand { font-size: .75rem; font-weight: 600; color: var(--muted);
                  letter-spacing: .04em; text-transform: uppercase; line-height: 1.4; }
@@ -319,7 +326,17 @@ export function formPage({ location, lang, turnstileSiteKey, explicitLang, nonce
   const body = `
 <header>
   <div class="shop">
-    ${logoUri() ? `<img class="logo" src="${logoUri()}" alt="">` : ''}
+    ${
+      logoUrl()
+        ? hasDarkLogo()
+          // Two <img> swapped by CSS rather than one src chosen on the server:
+          // the theme is the phone's, and it can change after the page is
+          // served (system theme switching at sunset, for one).
+          ? `<img class="logo light" src="${logoUrl()}" alt="">` +
+            `<img class="logo dark" src="${logoDarkUrl()}" alt="">`
+          : `<img class="logo" src="${logoUrl()}" alt="">`
+        : ''
+    }
     <div class="names">
       ${config.brand.name ? `<span class="brand">${esc(config.brand.name)}</span>` : ''}
       <span class="place">${esc(location.name)}</span>

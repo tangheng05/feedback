@@ -192,6 +192,12 @@ export const config = {
     // decodable as pixels without a rasteriser.
     logo: process.env.BRAND_LOGO || '',
 
+    // Optional second file for dark backgrounds, used only by the form when
+    // the customer's phone is in dark mode. The poster and the QR's white
+    // plate always use BRAND_LOGO -- a pale logo composited into the code
+    // would leave a blank hole in the middle of it.
+    logoDark: process.env.BRAND_LOGO_DARK || '',
+
     // Poster colours. Defaults are a deep indigo field with a warm accent,
     // legible in print and safely away from the QR's own black-on-white.
     color: process.env.BRAND_COLOR || '#312E81',

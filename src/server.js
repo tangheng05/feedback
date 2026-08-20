@@ -6,6 +6,7 @@ import { getLocation, claimUpdate } from './db.js';
 import { CATEGORY_IDS, STRINGS, pickLang, langFromHeader } from './i18n.js';
 import { formPage, noticePage } from './views.js';
 import { qrPng, qrSvg, posterHtml } from './qr.js';
+import { logoAsset, LOGO_URL, LOGO_DARK_URL } from './brand.js';
 import { hashIp, clientIp, consume, schedulePurge } from './ratelimit.js';
 import { submitFeedback, noticeThrottled } from './feedback.js';
 import { handleCommand } from './commands.js';
@@ -84,6 +85,30 @@ app.use(
     fallthrough: true,
   })
 );
+
+/* --------------------------------------------------------------- brand logo */
+
+/*
+ * Served from memory, not from disk.
+ *
+ * The bytes were downscaled once at boot (see brand.js), so this hands out a
+ * few KB rather than the several hundred a design-tool export weighs. Serving
+ * public/brand/ as a static directory instead would publish whatever else is
+ * sitting in that folder - including the original artwork an admin dropped
+ * there under whatever name it happened to have.
+ */
+for (const [routePath, variant] of [[LOGO_URL, 'light'], [LOGO_DARK_URL, 'dark']]) {
+  app.get(routePath, (req, res) => {
+    const asset = logoAsset(variant);
+    if (!asset.web) return res.status(404).send('Not found');
+    res
+      .type(asset.type)
+      // A day, not a year: the path carries no content hash, so an admin who
+      // swaps the logo should see it on the poster the same day.
+      .set('Cache-Control', 'public, max-age=86400')
+      .send(asset.web);
+  });
+}
 
 /* ----------------------------------------------------------- customer form */
 
