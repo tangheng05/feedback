@@ -344,15 +344,28 @@ or TLS mistake shows up that localhost testing hides.
 
 ## Day-to-day
 
+In Telegram:
+
 | Task | Command |
 |---|---|
-| Add a location | `/add Shop Name` in the group |
-| Reprint a QR | `/qr slug` |
+| Add a location | `/add Shop Name` |
+| Reprint a poster | `/qr slug` |
 | See all locations | `/list` |
-| Pause a location | `/off slug` |
+| Pause / resume | `/off slug` · `/on slug` |
+| Rename (QR keeps working) | `/rename slug New Name` |
 | Weekly numbers | `/stats` or `/stats 30` |
-| View logs | `journalctl -u feedback -f` |
-| Restart | `sudo systemctl restart feedback` |
+| Anything that never arrived | `/pending` — lists it and re-sends |
+
+On the server:
+
+| Task | pm2 | systemd |
+|---|---|---|
+| Logs | `pm2 logs feedback` | `journalctl -u feedback -f` |
+| Restart | `pm2 restart feedback` | `systemctl restart feedback` |
+| What is stored | `npm run peek` | `npm run peek` |
+
+> Restart after **any** `.env` change. It is read once at startup, and the logo
+> and QR images are cached for the life of the process.
 
 ### Updating
 

@@ -11,7 +11,7 @@ VPS and no Telegram account. Only the bot half needs real Telegram.
 ```bash
 cd feedback
 npm install
-npm run fonts      # downloads the Khmer font; without it Khmer renders in a fallback
+npm run fonts      # Khmer webfont + the TTFs the poster renderer needs
 ```
 
 ## 2. Create `.env.local`
@@ -71,7 +71,8 @@ Open **http://localhost:3000/f/test**.
 | The log | `stored but not delivered … 401 Unauthorized` — correct. The complaint is safe in SQLite; only the push failed. |
 | Too fast | Submit within 3 seconds of loading. It succeeds, but is stored `quarantined` and never pushed. |
 | Rate limit | Send 11 times. The 11th returns 429. |
-| The poster | http://localhost:3000/poster/test — this is what you print. |
+| The poster page | http://localhost:3000/poster/test |
+| The poster image | http://localhost:3000/poster/test.png — the 300dpi file `/add` sends to Telegram. First request takes a second or two while Chromium starts. |
 | The QR | http://localhost:3000/qr/test.png |
 
 Read what actually landed (no sqlite3 CLI needed):
@@ -102,6 +103,18 @@ The server prints a warning while this is on, and stops trusting
 `X-Forwarded-For` — without nginx in front, any device on the wifi could
 otherwise claim any IP and walk straight past the rate limit. **Never set
 `BIND_HOST` on the real server.**
+
+---
+
+## If the poster image fails
+
+`/poster/test.png` is rendered by headless Chromium, the only text engine that
+shapes Khmer correctly. On Linux it needs system libraries a minimal image does
+not ship — see the Chromium section of DEPLOY.md. On Windows and macOS it
+works out of the box.
+
+Nothing else depends on it: the form, the QR images and Telegram delivery all
+work without Chromium, and `/add` falls back to sending the plain QR.
 
 ---
 
