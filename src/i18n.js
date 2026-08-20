@@ -11,9 +11,12 @@ export const LANGS = ['km', 'en'];
 export const DEFAULT_LANG = 'km';
 
 export const CATEGORIES = [
-  { id: 'complaint',  en: 'Complaint',  km: 'បណ្តឹង' },
-  { id: 'suggestion', en: 'Suggestion', km: 'សំណើ' },
-  { id: 'compliment', en: 'Compliment', km: 'ការសរសើរ' },
+  // Khmer wording reviewed by a native speaker. Notes worth keeping:
+  //   បណ្តឹង alone reads as a legal lawsuit; ពាក្យបណ្តឹង is the customer-service word.
+  //   សំណើ is for formal business proposals; សំណូមពរ is what a customer makes.
+  { id: 'complaint',  en: 'Complaint',  km: 'ពាក្យបណ្តឹង' },
+  { id: 'suggestion', en: 'Suggestion', km: 'សំណូមពរ' },
+  { id: 'compliment', en: 'Compliment', km: 'ការកោតសរសើរ' },
   { id: 'product',    en: 'Product',    km: 'ផលិតផល' },
   { id: 'staff',      en: 'Staff',      km: 'បុគ្គលិក' },
   { id: 'other',      en: 'Other',      km: 'ផ្សេងៗ' },
@@ -60,13 +63,18 @@ export const STRINGS = {
   km: {
     htmlLang: 'km',
     title: 'ផ្ញើមតិយោបល់',
-    heading: 'ប្រាប់យើងពីអ្វីដែលអ្នកគិត',
+    // Reviewed by a native speaker. The originals read as direct translations
+    // of the English: "Tell us what you think", and a rating label that landed
+    // closer to "How was your coming to play?". These are the phrasings a
+    // Cambodian business would actually print.
+    heading: 'សូមផ្តល់មតិយោបល់របស់អ្នក',
     subheading: 'អនាមិក — យើងមិនសួររកឈ្មោះរបស់អ្នកឡើយ។',
-    categoryLabel: 'តើនេះទាក់ទងនឹងអ្វី?',
-    ratingLabel: 'តើការមកលេងរបស់អ្នកយ៉ាងណា?',
+    categoryLabel: 'តើមតិយោបល់នេះទាក់ទងនឹងអ្វី?',
+    ratingLabel: 'តើលោកអ្នកពេញចិត្តនឹងបទពិសោធន៍នៅទីនេះកម្រិតណា?',
     ratingOptional: 'ជាជម្រើស',
-    messageLabel: 'សាររបស់អ្នក',
-    messagePlaceholder: 'សូមប្រាប់យើងពីអ្វីដែលបានកើតឡើង។ កាន់តែលម្អិត យើងកាន់តែអាចដោះស្រាយបាន។',
+    messageLabel: 'មតិយោបល់របស់អ្នក',
+    messagePlaceholder:
+      'សូមរៀបរាប់បន្ថែមនៅទីនេះ។ ព័ត៌មានលម្អិតរបស់លោកអ្នកនឹងជួយឱ្យយើងបម្រើសេវាកម្មបានកាន់តែប្រសើរ។',
     send: 'ផ្ញើ',
     sending: 'កំពុងផ្ញើ…',
     thanksHeading: 'សូមអរគុណ',
