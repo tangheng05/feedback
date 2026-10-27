@@ -3,13 +3,7 @@ import * as tg from './telegram.js';
 
 const ADMIN_CACHE_TTL = 5 * 60; // seconds
 
-/**
- * Only group admins may run commands or press status buttons.
- *
- * The result is cached briefly because every action would otherwise cost an
- * extra Telegram round-trip, and admin lists change rarely. A just-demoted
- * admin keeps access for up to 5 minutes, which is an acceptable trade here.
- */
+// Cached briefly: a just-demoted admin keeps access for up to 5 minutes.
 export async function isAdmin(userId) {
   if (!userId) return false;
 
@@ -25,8 +19,7 @@ export async function isAdmin(userId) {
     return ok;
   } catch (err) {
     console.error('[auth] getChatMember failed:', err.message);
-    // Fail closed, and do not cache — a Telegram hiccup must never hand out
-    // admin rights, nor lock out a real admin for the whole TTL.
+    // Fail closed, and don't cache a transient failure.
     return false;
   }
 }

@@ -15,46 +15,19 @@ import { handleCallback } from './callbacks.js';
 
 const app = express();
 
-/*
- * Express 4 does not adopt a rejected promise returned by a route handler.
- *
- * Without this wrapper a rejection inside an async route (a Telegram timeout, a
- * disk error) becomes an unhandled rejection, which on Node 15+ terminates the
- * process. systemd restarts us, but every request in flight at that instant is
- * lost -- including a submission the customer has already been shown a
- * reference code for. Routing it into the error middleware instead turns a
- * crash into one 500 and one log line.
- */
+// Express 4 ignores rejected promises from handlers; route them to the error middleware.
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
-/*
- * See config.trustProxy. Express uses this for req.ip and req.protocol;
- * ratelimit.js consults the same flag before believing X-Forwarded-For, which
- * is the decision that actually matters here.
- */
 app.set('trust proxy', config.trustProxy);
 app.disable('x-powered-by');
 
 app.use(express.json({ limit: '32kb' }));
 
-/*
- * A per-response nonce lets the CSP allow exactly our own inline <style> and
- * <script> and nothing else. The form is entirely inline by design (one request,
- * fast first paint), so 'unsafe-inline' would be the alternative — which would
- * make the CSP decorative.
- */
+// Pages are fully inline, so a per-response nonce is what makes the CSP meaningful.
 app.use((req, res, next) => {
   res.locals.nonce = crypto.randomBytes(16).toString('base64');
 
-  /*
-   * Turnstile needs more than a script-src entry: the widget opens its own
-   * XHR to challenges.cloudflare.com and injects styles into the page. With
-   * connect-src 'self' those requests are blocked, the widget never produces a
-   * token, and /api/feedback then 400s EVERY genuine customer -- a silent
-   * total outage of the form that only appears once TURNSTILE_ENABLED=true.
-   * The widget propagates the nonce from its own <script> tag to the styles it
-   * injects, which is why views.js stamps the nonce on that tag.
-   */
+  // Turnstile also needs connect-src and frame-src, or it never yields a token.
   const cf = 'https://challenges.cloudflare.com';
   const ts = config.turnstile.enabled;
   res.setHeader(
@@ -89,23 +62,13 @@ app.use(
 
 /* --------------------------------------------------------------- brand logo */
 
-/*
- * Served from memory, not from disk.
- *
- * The bytes were downscaled once at boot (see brand.js), so this hands out a
- * few KB rather than the several hundred a design-tool export weighs. Serving
- * public/brand/ as a static directory instead would publish whatever else is
- * sitting in that folder - including the original artwork an admin dropped
- * there under whatever name it happened to have.
- */
+// From memory, not express.static, so nothing else in public/brand/ gets published.
 for (const [routePath, variant] of [[LOGO_URL, 'light'], [LOGO_DARK_URL, 'dark']]) {
   app.get(routePath, (req, res) => {
     const asset = logoAsset(variant);
     if (!asset.web) return res.status(404).send('Not found');
     res
       .type(asset.type)
-      // A day, not a year: the path carries no content hash, so an admin who
-      // swaps the logo should see it on the poster the same day.
       .set('Cache-Control', 'public, max-age=86400')
       .send(asset.web);
   });
@@ -114,8 +77,6 @@ for (const [routePath, variant] of [[LOGO_URL, 'light'], [LOGO_DARK_URL, 'dark']
 /* ----------------------------------------------------------- customer form */
 
 app.get('/f/:slug', (req, res) => {
-  // ?lang= wins (it is an explicit choice), otherwise fall back to the phone's
-  // Accept-Language. Either way the in-page toggle can override it instantly.
   const explicitLang = Boolean(req.query.lang);
   const chosen = explicitLang
     ? pickLang(req.query.lang)
@@ -125,9 +86,7 @@ app.get('/f/:slug', (req, res) => {
 
   const location = getLocation(req.params.slug);
 
-  // no-store on the notices too, not just the live form. A phone that scanned a
-  // paused shop would otherwise keep re-showing "not accepting feedback" from
-  // its own cache after the admin runs /on, and the admin has no way to tell.
+  // no-store everywhere, so /on, /off and renames apply on the next scan.
   if (!location) {
     return res.status(404).type('html').set('Cache-Control', 'no-store').send(
       noticePage({ lang: chosen, nonce, heading: t.notFoundHeading, bodyText: t.notFoundBody, icon: '❓' })
@@ -143,8 +102,6 @@ app.get('/f/:slug', (req, res) => {
   res
     .status(200)
     .type('html')
-    // The form must never be served stale: a paused or renamed location has to
-    // take effect on the next scan, not whenever a phone decides to revalidate.
     .set('Cache-Control', 'no-store')
     .send(
       formPage({
@@ -162,9 +119,6 @@ app.get('/f/:slug', (req, res) => {
 async function verifyTurnstile(token, ip) {
   if (!config.turnstile.enabled) return true;
 
-  // No token at all means the widget never rendered or never solved -- a CSP
-  // or network problem on our side, not a bot. Rejecting is still correct, but
-  // it looks identical to spam in the logs unless it says so.
   if (typeof token !== 'string' || token === '') {
     console.warn('[turnstile] submission arrived with no token; widget did not solve');
     return false;
@@ -180,8 +134,7 @@ async function verifyTurnstile(token, ip) {
     return body.success === true;
   } catch (err) {
     console.error('[turnstile] verification failed:', err.message);
-    // Fail open. A Cloudflare outage should not silence real customers; the
-    // rate limits are still in force underneath.
+    // Fail open: a Cloudflare outage shouldn't silence customers; rate limits still apply.
     return true;
   }
 }
@@ -212,11 +165,7 @@ app.post('/api/feedback', wrap(async (req, res) => {
   const ip = clientIp(req);
   const ipHash = hashIp(ip);
 
-  // Consume a rate-limit slot BEFORE any further work, and before any await.
-  // The check and the increment happen inside one synchronous transaction, so
-  // a burst of concurrent requests cannot all read the same pre-increment
-  // count and pass together — which is exactly the flood these limits exist
-  // to stop.
+  // Must run before any await.
   const blocked = consume(ipHash, location.slug);
   if (blocked === 'ip') {
     return res.status(429).json({ error: 'errRate' });
@@ -226,25 +175,11 @@ app.post('/api/feedback', wrap(async (req, res) => {
     return res.status(400).json({ error: 'errGeneric' });
   }
 
-  /*
-   * Bot tells: the honeypot field, and an implausibly fast fill.
-   *
-   * Number(undefined) is NaN and NaN < 3 is false, so `elapsed` must be
-   * validated as finite — otherwise simply omitting the field skips the check,
-   * which is exactly what a hand-rolled flooder does.
-   *
-   * These submissions are STORED but never pushed to Telegram. A false
-   * positive (a password manager filling the honeypot, a bfcache oddity) would
-   * otherwise discard a real complaint behind a fake success screen; this way
-   * the message is always recoverable and the reference code the customer is
-   * shown is always real.
-   */
+  // Suspected bots are stored, not dropped. A missing elapsed counts as too fast.
   const secs = Number(elapsed);
   const trippedHoneypot = typeof hp === 'string' && hp.length > 0;
   const tooFast = !Number.isFinite(secs) || secs < config.limits.minFillSeconds;
 
-  // Over the per-location cap, keep accepting but stop pushing, so a flood
-  // cannot bury genuine complaints in the group. Nothing is ever thrown away.
   const flooded = blocked === 'location';
 
   const status = trippedHoneypot || tooFast ? 'quarantined' : flooded ? 'held' : 'new';
@@ -289,13 +224,6 @@ app.get('/qr/:slug.svg', wrap(async (req, res) => {
     .send(await qrSvg(location.slug));
 }));
 
-/*
- * The poster as a print-ready image.
- *
- * Rasterising an A5 sheet at 300dpi takes a few hundred milliseconds on Node's
- * single thread, and the slug is printed on a public wall - so this is cached
- * like the QR images rather than re-rendered per request.
- */
 const posterPngCache = new Map();
 
 app.get('/poster/:slug.png', wrap(async (req, res) => {
@@ -310,14 +238,7 @@ app.get('/poster/:slug.png', wrap(async (req, res) => {
   res.type('png').set('Cache-Control', 'public, max-age=86400').send(posterPngCache.get(location.slug));
 }));
 
-
-/*
- * The .png route must be registered BEFORE /poster/:slug.
- *
- * `:slug` matches everything up to the next slash, ".png" included, so with
- * the other order every request for the image resolved to slug
- * "takhmauy.png", found no location, and 404'd.
- */
+// Must stay after /poster/:slug.png, which this would otherwise swallow.
 app.get('/poster/:slug', wrap(async (req, res) => {
   const location = getLocation(req.params.slug);
   if (!location) return res.status(404).send('Not found');
@@ -329,7 +250,7 @@ app.get('/poster/:slug', wrap(async (req, res) => {
 
 /* --------------------------------------------------------- telegram webhook */
 
-/** Constant-time compare that doesn't leak length via an early return. */
+// Hash first so timingSafeEqual gets equal lengths.
 function secretMatches(received) {
   if (typeof received !== 'string') return false;
   const a = crypto.createHash('sha256').update(received).digest();
@@ -338,20 +259,15 @@ function secretMatches(received) {
 }
 
 app.post(`/tg/${config.telegram.webhookPath}`, (req, res) => {
-  // The path is a hash of the secret, not the secret itself, so an nginx access
-  // log cannot yield the token Telegram signs each request with.
   if (!secretMatches(req.get('X-Telegram-Bot-Api-Secret-Token'))) {
     return res.sendStatus(401);
   }
 
-  // Acknowledge immediately, then work. /add takes a couple of seconds to
-  // create a topic and render a QR, and Telegram retries anything slow.
+  // Ack first: Telegram retries anything slow, and /add takes seconds.
   res.sendStatus(200);
 
   const update = req.body || {};
 
-  // Belt and braces against a retry that slips through anyway: processing the
-  // same update twice would create two forum topics for one /add.
   if (!claimUpdate(update.update_id)) {
     console.warn(`[webhook] ignoring duplicate update ${update.update_id}`);
     return;
@@ -375,9 +291,7 @@ app.use((req, res) => res.status(404).send('Not found'));
 app.use((err, req, res, next) => {
   if (res.headersSent) return next(err);
 
-  // Malformed JSON and oversized bodies arrive here already carrying their own
-  // status from body-parser. Reporting those as 500 would blame the server for
-  // a bad request and hide the real cause in the logs.
+  // body-parser errors carry their own 4xx status.
   const status = Number(err.status || err.statusCode) || 500;
   if (status >= 500) console.error('[express]', err);
   else console.warn(`[express] ${status} ${err.type || err.name}: ${err.message}`);
@@ -389,14 +303,6 @@ app.use((err, req, res, next) => {
 
 schedulePurge();
 
-/*
- * Loopback only.
- *
- * Binding 0.0.0.0 would leave the app reachable at http://<server-ip>:3000,
- * bypassing nginx entirely — no TLS, no body limit, and, critically, a
- * client-supplied X-Forwarded-For that makes the per-IP rate limit free to
- * defeat with a fresh fake IP per request.
- */
 const server = app.listen(config.port, config.bindHost, () => {
   console.log(`feedback server listening on ${config.bindHost}:${config.port}`);
   console.log(`public base url: ${config.baseUrl}`);
@@ -419,14 +325,7 @@ const server = app.listen(config.port, config.bindHost, () => {
   }
 });
 
-/*
- * Floor under everything above.
- *
- * `wrap` covers the routes, but a rejection from a background task -- a
- * fire-and-forget Telegram push, a purge timer -- has no request to attach to.
- * Logging and staying up is right here: this process holds one SQLite file and
- * a webhook registration, and dying takes the form down for every shop.
- */
+// Background tasks have no request to fail; log and stay up.
 process.on('unhandledRejection', (reason) => {
   console.error('[fatal] unhandled rejection:', reason);
 });

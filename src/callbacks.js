@@ -7,23 +7,13 @@ import { formatFeedback, statusKeyboard, STATUS } from './feedback.js';
 const displayName = (user) =>
   [user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.username || 'someone';
 
-/**
- * Acknowledge a button tap. Never throws: by the time we call this the status
- * change is already committed, and letting a failed acknowledgement bubble up
- * would report a successful action as an error.
- */
+// Never throws: the status change is already committed by the time we ack.
 const ack = (id, text, alert = false) =>
   tg.answerCallbackQuery(id, text, alert).catch((err) => {
     console.error('[callback] ack failed:', err.message);
   });
 
-/**
- * Handle the status buttons under a feedback message.
- *
- * Every path answers the callback query — Telegram shows a spinner on the
- * button until it gets a response, so a silent return leaves the tapper
- * staring at a hung button.
- */
+// Every path must ack, or Telegram leaves the button spinning.
 export async function handleCallback(query) {
   const data = query.data || '';
 
@@ -31,9 +21,6 @@ export async function handleCallback(query) {
     return ack(query.id, 'Not available here.');
   }
 
-  // Same bar as the commands. Without this any group member — a cashier, a
-  // part-timer, someone demoted last week — could mark every open complaint
-  // resolved, and /stats would report it as handled.
   if (!(await isAdmin(query.from?.id))) {
     return ack(query.id, 'Admins only.', true);
   }
@@ -68,8 +55,6 @@ export async function handleCallback(query) {
       reply_markup: statusKeyboard(ref, status),
     });
   } catch (err) {
-    // A "message is not modified" error is harmless; anything else is worth
-    // seeing in the logs, but the DB write already succeeded either way.
     if (!String(err.message).includes('not modified')) {
       console.error(`[callback] edit failed for #${ref}:`, err.message);
     }

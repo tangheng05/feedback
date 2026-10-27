@@ -2,21 +2,7 @@ import { STRINGS, CATEGORIES } from './i18n.js';
 import { logoUrl, logoDarkUrl, hasDarkLogo, hasAnyLogo } from './brand.js';
 import { config } from './config.js';
 
-/**
- * Self-hosted Kantumruy Pro Khmer, inlined rather than linked.
- *
- * A separate stylesheet would be a render-blocking round trip before any Khmer
- * can paint — on slow mobile data that is the difference between a form that
- * appears instantly and one that flashes blank. Inlining also lets the page run
- * under a nonce-only style-src with no 'self' escape hatch.
- *
- * ONE file, `font-weight: 400 700`: the Khmer subset is a variable font
- * covering the whole range. The unicode-range confines it to Khmer, so English
- * renders in the device's own UI font — which looks native and costs 0 bytes.
- *
- * Not a Google Fonts CDN link: that request is often the slowest thing on the
- * page in Cambodia, and if it stalls the customer stares at invisible text.
- */
+// One variable font for 400-700, limited to Khmer; English uses the system font.
 export const fontFaceCss = `
   @font-face {
     font-family: 'Kantumruy Pro';
@@ -28,15 +14,7 @@ export const fontFaceCss = `
   }
 `;
 
-/**
- * JSON for embedding inside a <script> block.
- *
- * An HTML parser ends the script at the first literal `</`, wherever it sits,
- * so a string containing `</script>` would close the block early and inject
- * the rest as markup. U+2028/2029 are line terminators to older JS parsers and
- * break the literal outright. Every string here is ours today, but this is the
- * one place where a translator's text becomes executable page source.
- */
+// Safe to embed in <script>: escapes `</` and U+2028/2029.
 const json = (value) =>
   JSON.stringify(value)
     .replace(/</g, '\\u003c')
@@ -46,15 +24,7 @@ const json = (value) =>
 const esc = (s) =>
   String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-/**
- * Khmer script stacks subscript consonants (coeng) below the baseline, so a
- * normal 1.4-1.5 line-height clips them — the `.low` coeng forms reach roughly
- * -0.6em. Everything here sits on a 1.9 floor.
- *
- * English does not need that much air and looks slack at 1.9, so it is tightened
- * per-language via `html[lang="en"]`. `applyLang` already maintains
- * documentElement.lang, so this costs no extra JavaScript.
- */
+// Khmer subscripts need line-height 1.9; English is tightened via html[lang="en"].
 const baseCss = `
   *, *::before, *::after { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
@@ -66,19 +36,13 @@ const baseCss = `
     --fg: #0a0a0a;
     --muted: #5c5c5c;
     --line: #e5e5e5;
-    /* Interactive boundaries need 3:1 (WCAG 1.4.11). The decorative --line is
-       far below that, so controls get their own heavier token. */
+    /* 3:1 for controls (WCAG 1.4.11); --line is decorative only. */
     --border: #8a8a8a;
-    /* Black is the accent. With no colour left to carry emphasis, weight and
-       contrast have to do it, which is why the send button is solid black and
-       every other control stays outlined. */
     --accent: #0a0a0a;
     --accent-fg: #ffffff;
     --accent-soft: #f4f4f4;
     --accent-line: #0a0a0a;
     --star: #0a0a0a;
-    /* Errors keep their colour. Red is the one thing on this page that must
-       not read as ordinary UI. */
     --danger: #b3261e;
     --focus: #0a0a0a;
   }
@@ -114,8 +78,6 @@ const baseCss = `
   .wrap {
     max-width: 34rem;
     margin: 0 auto;
-    /* viewport-fit=cover is set, so the insets must actually be consumed or the
-       notch sits over the content in landscape. */
     padding: 1rem max(1rem, env(safe-area-inset-right))
              calc(2rem + env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
   }
@@ -166,40 +128,26 @@ const formCss = `
     border-bottom: 1px solid var(--line);
     margin-bottom: 1.25rem;
   }
-  /* Logo and names, so a customer can see at a glance they scanned the right
-     shop's code and not a sticker someone else put on the wall. */
   .shop { flex: 1; display: flex; align-items: center; gap: .625rem; min-width: 0; }
   .shop .logo {
     height: 34px; width: auto; max-width: 128px; object-fit: contain;
     object-position: left center; flex: none;
   }
-  /* A divider instead of more whitespace: the logo and the location are two
-     different kinds of thing, and at this size a gap alone reads as one
-     lockup. */
   .shop .logo + .place { padding-left: .625rem; border-left: 1px solid var(--line); }
   .shop .names { display: flex; flex-direction: column; min-width: 0; }
   .shop .brand { font-size: .75rem; font-weight: 600; color: var(--muted);
                  letter-spacing: .04em; text-transform: uppercase; line-height: 1.4; }
-  .shop .place { font-size: 1rem; font-weight: 700; letter-spacing: -.01em;
+  .shop .place { font-size: 1.0625rem; font-weight: 700; letter-spacing: -.01em;
                  line-height: 1.35; min-width: 0;
                  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  /* Only one of the pair is ever shown. Both URLs are cached by the phone, so
-     the hidden one costs nothing after the first visit. */
   .shop .logo.dark { display: none; }
   @media (prefers-color-scheme: dark) {
     .shop .logo.light { display: none; }
     .shop .logo.dark { display: block; }
   }
-  /* A wordmark plus a long shop name plus the language toggle will not fit a
-     small phone. The logo keeps its size; the name is what gives way. */
   @media (max-width: 380px) {
     .shop .logo { max-width: 96px; }
   }
-  .shop .names { display: flex; flex-direction: column; min-width: 0; }
-  .shop .brand { font-size: .75rem; font-weight: 600; color: var(--muted);
-                 letter-spacing: .04em; text-transform: uppercase; line-height: 1.4; }
-  .shop .place { font-size: 1.0625rem; font-weight: 700; letter-spacing: -.01em;
-                 line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .langtoggle {
     display: flex; align-items: stretch; flex: none;
@@ -229,22 +177,15 @@ const formCss = `
   }
   html[lang="en"] h1 { line-height: 1.25; }
 
-
   fieldset { border: 0; margin: 0 0 1.875rem; padding: 0; }
   fieldset:last-of-type { margin-bottom: 1.25rem; }
-  /* Questions, not headings: enough weight to anchor each group, quiet enough
-     that the answers below are what the eye lands on. */
   legend { padding: 0; font-size: .875rem; font-weight: 600; margin-bottom: .75rem;
            color: var(--fg); }
-  /* Kept on one piece: "(optional)" split across two lines reads as a second
-     question rather than a note on the first. */
   legend .opt { font-weight: 400; color: var(--muted); white-space: nowrap; }
 
   .chips {
     display: flex; flex-wrap: wrap; gap: .5rem;
-    /* The hidden radios are absolutely positioned; without a positioned
-       ancestor they resolve against the page and keyboard focus scroll-jumps
-       to the top. */
+    /* Anchors the hidden radios, or focus scroll-jumps to the top. */
     position: relative;
   }
   .chips input { position: absolute; opacity: 0; pointer-events: none; }
@@ -252,34 +193,18 @@ const formCss = `
     display: inline-flex; align-items: center; padding: 0 1.125rem;
     border: 1.5px solid var(--border); border-radius: 999px; cursor: pointer;
     font-size: .9375rem; user-select: none; background: transparent; color: var(--fg);
-    /* 44px minimum touch target - used one-handed, standing in a shop. */
     min-height: 46px;
     transition: background .14s ease, border-color .14s ease, color .14s ease, transform .06s ease;
   }
   .chips label:active { transform: scale(.97); }
 
-  /*
-   * Selected chips invert completely rather than tinting.
-   *
-   * A tinted background and a slightly brighter border is the usual treatment
-   * and it failed here: on a phone at arm's length, in a shop, the chosen
-   * category was almost indistinguishable from the five beside it. Filling it
-   * solid means the answer is readable at a glance and does not depend on
-   * seeing a one-pixel border colour.
-   */
   .chips input:checked + label {
     background: var(--accent); border-color: var(--accent); color: var(--accent-fg);
     font-weight: 600;
-  }  .chips input:focus-visible + label { outline: 2px solid var(--focus); outline-offset: 2px; }
+  }
+  .chips input:focus-visible + label { outline: 2px solid var(--focus); outline-offset: 2px; }
   .chips.invalid label { border-color: var(--danger); }
 
-  /*
-   * Two even columns on a phone.
-   *
-   * Free-wrapping pills of six different Khmer lengths produce a ragged three
-   * row block that reads as clutter. A grid gives equal targets in a
-   * predictable order, which is easier to scan and easier to hit one-handed.
-   */
   @media (max-width: 460px) {
     .chips { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
     .chips label { justify-content: center; text-align: center; padding: 0 .625rem;
@@ -293,15 +218,12 @@ const formCss = `
     min-width: 46px; min-height: 46px;
   }
   .stars button:active { transform: scale(.88); }
-  /* The glyph swaps from outline to solid as well, so the rating never
-     depends on colour alone. */
   .stars button.on { color: var(--star); }
 
   textarea {
     width: 100%; min-height: 8.5rem; padding: .875rem;
     font: inherit; line-height: inherit; color: var(--fg); background: var(--field);
     border: 1.5px solid var(--border); border-radius: 14px;
-    /* No resize handle exists on touch anyway; the field auto-grows instead. */
     resize: none; overflow-y: auto;
     transition: border-color .14s ease;
   }
@@ -315,29 +237,15 @@ const formCss = `
     width: 100%; padding: .9rem; font: inherit; font-weight: 600;
     border: 0; border-radius: 12px; background: var(--accent); color: var(--accent-fg);
     cursor: pointer; min-height: 52px;
-    /*
-     * Not sticky.
-     *
-     * "position: sticky" with a bottom offset on the last element pulls it UP to stay
-     * in view, which means it floats over the siblings above it - on a phone
-     * the Send button sat directly on top of the message box, hiding the field
-     * someone was trying to type in. The form is short enough that a button at
-     * the end is reachable without it.
-     */
+    /* Not sticky: that floated it over the message box on phones. */
     margin-bottom: env(safe-area-inset-bottom);
     transition: opacity .12s ease, transform .06s ease;
   }
   button.send:active { transform: scale(.99); }
   button.send[disabled] { opacity: .55; cursor: default; }
 
-  /* Stays in the DOM even when empty: role="alert" on a display:none element is
-     removed from the accessibility tree, and inserting the region and its text
-     in the same frame is unreliable in VoiceOver and NVDA. An empty <p> with
-     zero margin contributes no height. */
-
+  /* Never display:none: the role="alert" region must stay in the a11y tree. */
   .err { color: var(--danger); font-size: .875rem; margin: 0; }
-  /* "Checking, one moment" is progress, not a failure. Red would tell the
-     customer their complaint was rejected while it is still being sent. */
   .err[data-tone="info"] { color: var(--muted); }
   .err:not(:empty) { margin: 0 0 .75rem; }
 
@@ -359,7 +267,6 @@ const formCss = `
   .done .refhelp, .done .closetab { font-size: .75rem; color: var(--muted); margin-top: .5rem; }
 `;
 
-
 export function formPage({ location, lang, turnstileSiteKey, explicitLang, nonce }) {
   const t = STRINGS[lang];
 
@@ -377,27 +284,13 @@ export function formPage({ location, lang, turnstileSiteKey, explicitLang, nonce
     )
     .join('');
 
-  /*
-   * method/action are set even though JS always intercepts.
-   *
-   * Without them the default is GET to the current URL, so if the script fails
-   * to run — data-saver proxy, an old browser, a CSP change — pressing Send
-   * would put the customer's anonymous complaint into the query string, the
-   * browser history and the nginx access log. POST to a path with no POST
-   * handler gives a clean 404 and leaks nothing.
-   */
+  // method=post so a no-JS submit never puts the message in a query string or access log.
   const body = `
 <header>
   <div class="shop">
     ${
       hasAnyLogo()
-        // A wordmark logo already says the company name. Printing it again as
-        // text beside the image is the same word twice, and it crowds the
-        // location name, which is the part a customer actually needs to check.
         ? (hasDarkLogo()
-            // Two <img> swapped in CSS rather than one src chosen on the
-            // server: the theme belongs to the phone and can change after the
-            // page was served.
             ? `<img class="logo light" src="${logoUrl()}" alt="${esc(config.brand.name)}">` +
               `<img class="logo dark" src="${logoDarkUrl()}" alt="${esc(config.brand.name)}">`
             : `<img class="logo" src="${logoUrl()}" alt="${esc(config.brand.name)}">`) +
@@ -446,7 +339,6 @@ export function formPage({ location, lang, turnstileSiteKey, explicitLang, nonce
       </div>
     </fieldset>
 
-    <!-- Honeypot: invisible to humans, irresistible to naive bots. -->
     <div class="hp" aria-hidden="true">
       <label>Leave this empty<input type="text" name="url_confirm_2" tabindex="-1" autocomplete="off"></label>
     </div>
@@ -457,9 +349,6 @@ ${turnstileSiteKey ? `    <div class="cf-turnstile" data-sitekey="${esc(turnstil
 </main>
 `;
 
-  // Both language tables ship inside the page so the toggle is instant. A
-  // round-trip just to switch language would be painful on slow mobile data,
-  // and the extra payload is under 2 KB.
   const script = `
 const S = ${json({ en: STRINGS.en, km: STRINGS.km })};
 const SLUG = ${json(location.slug)};
@@ -507,9 +396,7 @@ for (const b of document.querySelectorAll('.langtoggle button')) {
   b.addEventListener('click', () => applyLang(b.dataset.lang));
 }
 
-// An explicit ?lang= is a deliberate choice and outranks the stored one —
-// otherwise handing someone a ?lang=km link does nothing if that phone once
-// picked EN.
+// An explicit ?lang= outranks the stored choice.
 try {
   if (EXPLICIT) {
     localStorage.setItem('fb_lang', lang);
@@ -527,7 +414,6 @@ function paintStars() {
     const n = Number(b.dataset.star);
     const on = n <= rating;
     b.classList.toggle('on', on);
-    // The glyph changes too, so the rating never depends on colour alone.
     b.textContent = on ? '\\u2605' : '\\u2606';
     b.setAttribute('aria-checked', String(n === rating));
     b.tabIndex = n === (rating || 1) ? 0 : -1;
@@ -540,8 +426,7 @@ function paintStars() {
 }
 
 function setRating(n) {
-  // Tapping the same star again clears it. The rating is optional, so there
-  // has to be a way back to "no answer" after a mis-tap.
+  // Tapping the same star again clears it.
   rating = rating === n ? 0 : n;
   paintStars();
   if (!rating) $('#starstatus').textContent = S[lang].starsCleared;
@@ -571,8 +456,6 @@ function grow() {
 function updateCount() {
   const left = MAX - msg.value.length;
   $('#count').textContent = left;
-  // Only meaningful when they're close to it, and a character count means very
-  // little in Khmer where one syllable is several UTF-16 units.
   $('#countwrap').hidden = left > 300;
 }
 
@@ -583,7 +466,6 @@ msg.addEventListener('input', () => { updateCount(); grow(); });
 function setErr(key, tone) {
   if (key) {
     err.dataset.t = key;
-    // 'info' is progress text, not a rejection; the CSS greys it out.
     if (tone) err.dataset.tone = tone; else delete err.dataset.tone;
     err.textContent = S[lang][key] || S[lang].errGeneric;
   } else {
@@ -618,8 +500,6 @@ $('#form').addEventListener('submit', async (e) => {
   const category = $('.chips input:checked');
   if (!category) {
     setErr('errCategory');
-    // The chips are far above the fold behind the keyboard; an error pointing
-    // at something off-screen is the most likely point of abandonment.
     const group = document.querySelector('.chips');
     group.classList.add('invalid');
     group.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -635,9 +515,7 @@ $('#form').addEventListener('submit', async (e) => {
   btn.dataset.t = 'sending';
   btn.textContent = S[lang].sending;
 
-  // The widget loads from a third party and may not have solved yet on a slow
-  // connection. Waiting briefly beats bouncing a real complaint with a
-  // meaningless error.
+  // The widget may not have solved yet on a slow connection.
   if (HAS_TURNSTILE && !tsToken()) {
     setErr('verifying', 'info');
     const started = Date.now();
@@ -648,9 +526,7 @@ $('#form').addEventListener('submit', async (e) => {
     if (!tsToken()) { fail('errGeneric'); return; }
   }
 
-  // AbortController, not AbortSignal.timeout: the latter needs a newer browser
-  // than the cheap Android this has to work on. Without any timeout a stalled
-  // connection leaves the button stuck on "Sending…" indefinitely.
+  // Not AbortSignal.timeout: too new for older Android browsers.
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), 15000);
 
@@ -701,14 +577,10 @@ function showThanks(ref) {
       '<p class="refhelp" data-t="refHelp"></p>' +
       '<p class="closetab" data-t="closeTab"></p>' +
     '</div>';
-  // Set as text, never innerHTML — ref is server-generated but this keeps the
-  // rule consistent everywhere user-visible strings are injected.
   main.querySelector('.ref').textContent = '#' + (ref || '');
   applyLang(lang);
 
-  // Replacing the card destroys the focused button, dropping focus to <body>:
-  // a screen-reader user would hear nothing at all. Moving focus is the
-  // reliable mechanism here; role="status" alone is not.
+  // The focused button was just destroyed; move focus so screen readers announce this.
   const done = main.querySelector('.done');
   done.focus({ preventScroll: true });
   window.scrollTo(0, 0);
@@ -717,8 +589,6 @@ function showThanks(ref) {
 
 /* -------------------------------------------------------------- draft save */
 
-// A failed send keeps the typed text, but a reload would lose it — and this
-// runs on flaky mobile data.
 try {
   const draft = sessionStorage.getItem('fb_draft_' + SLUG);
   if (draft && !msg.value) msg.value = draft;
@@ -727,16 +597,13 @@ msg.addEventListener('input', () => {
   try { sessionStorage.setItem('fb_draft_' + SLUG, msg.value); } catch (e) {}
 });
 
-// Run once at load: a bfcache restore can hand us a pre-filled textarea.
+// A bfcache restore can hand us a pre-filled textarea.
 updateCount();
 grow();
 paintStars();
 `;
 
-  // The nonce is not optional here. style-src is nonce-only, and Turnstile
-  // copies the nonce off its own script tag onto the styles it injects into
-  // the page; without it the widget renders unstyled or not at all, never
-  // produces a token, and every real submission is rejected.
+  // Turnstile copies this nonce onto the styles it injects.
   const head = turnstileSiteKey
     ? `<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" nonce="${esc(nonce)}" async defer></script>`
     : '';

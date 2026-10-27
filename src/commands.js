@@ -24,11 +24,7 @@ const GROUP_ANONYMOUS_BOT_ID = 1087968824;
 
 /* ------------------------------------------------------------------- slugs */
 
-/**
- * Slugs are permanent and appear in printed QR codes, so they must be short,
- * URL-safe and stable. A Khmer-only shop name percent-encodes into a long ugly
- * URL that makes a dense, hard-to-scan QR, so those fall back to a short code.
- */
+// Slugs are printed in QRs, so short and permanent. Khmer-only names get a random code.
 const SLUG_FALLBACK_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
 
 function randomSlug(len = 4) {
@@ -52,15 +48,7 @@ export function slugify(name) {
   return base || randomSlug();
 }
 
-/**
- * Normalise a slug an admin TYPED, for lookup only.
- *
- * Must not go through slugify(): that truncates to 12 characters, and
- * uniqueSlug mints slugs up to 14 ("phnom-penh-c-2"). Slugifying a typed
- * "phnom-penh-c-2" yields "phnom-penh-c" — a different, existing shop. The
- * admin copies the slug straight out of /list, and /off or /rename would
- * silently act on the wrong location.
- */
+// Not slugify(): its truncation would turn "phnom-penh-c-2" into another shop's slug.
 const lookupSlug = (arg) => String(arg || '').trim().toLowerCase();
 
 function uniqueSlug(desired) {
@@ -69,7 +57,6 @@ function uniqueSlug(desired) {
     const candidate = `${desired}-${i}`.slice(0, 16);
     if (!getLocation(candidate)) return candidate;
   }
-  // Extremely unlikely; a random code is guaranteed to terminate the search.
   let fallback = randomSlug(5);
   while (getLocation(fallback)) fallback = randomSlug(5);
   return fallback;
@@ -103,18 +90,9 @@ const HELP = `<b>Feedback bot commands</b>
 
 /* ------------------------------------------------------------ command: /add */
 
-/*
- * The poster image, with a way back if Chromium is not usable.
- *
- * Rendering the sheet needs a headless browser, because it is the only text
- * engine that shapes Khmer correctly. That browser is also the most fragile
- * thing in the deployment: it wants about twenty system libraries, and it
- * refuses to run its sandbox as root. When it cannot start, an admin should
- * still get a working QR and a link they can print from — not a command
- * that appears to do nothing.
- */
 const firstLine = (msg) => String(msg).split(String.fromCharCode(10))[0];
 
+// Falls back to the plain QR when Chromium can't start.
 async function posterOrQr(slug, name) {
   try {
     return {
@@ -132,8 +110,7 @@ async function posterOrQr(slug, name) {
   }
 }
 
-// Template literals, with the line breaks written out: an escape sequence
-// here has been mangled by tooling more than once.
+// Written as char codes: tooling has mangled the escape sequence here before.
 const BREAK = String.fromCharCode(10, 10);
 
 const printLine = (slug, degraded) =>
@@ -160,16 +137,7 @@ async function cmdAdd(arg, threadId) {
     slug = uniqueSlug(slugify(name));
   }
 
-  /*
-   * Claim the slug BEFORE creating the topic.
-   *
-   * /add has to await Telegram in the middle. Two admins running it at the
-   * same moment would both pass a pre-await uniqueness check, both create a
-   * topic, and the loser would fail on the UNIQUE constraint — leaving an
-   * orphaned empty topic in the group with nothing pointing at it. Claiming
-   * the row first makes the slug itself the lock: the loser fails at once,
-   * before anything has been created.
-   */
+  // Claim the slug before creating the topic; see reserveLocation.
   const location = reserveLocation({ slug, name });
   if (!location) {
     return reply(threadId, `The slug <code>${esc(slug)}</code> is already taken. Pick another.`);
@@ -179,8 +147,7 @@ async function cmdAdd(arg, threadId) {
   try {
     topic = await tg.createForumTopic(name);
   } catch (err) {
-    // Release the claim, or a failed attempt burns the slug and the admin
-    // retry reports 'already taken' forever.
+    // Release the claim so a retry isn't told the slug is taken.
     deleteLocation(slug);
     console.error('[add] createForumTopic failed:', err.message);
     return reply(
@@ -192,20 +159,11 @@ async function cmdAdd(arg, threadId) {
 
   setLocationTopic(slug, topic.message_thread_id);
 
-  // A header inside the new topic, so anyone who taps into it knows what it is.
   await reply(
     topic.message_thread_id,
     `📍 <b>${esc(name)}</b>\n\nFeedback scanned at this location lands here.\n${esc(formUrl(slug))}`
   ).catch((err) => console.error('[add] topic header failed:', err.message));
 
-  /*
-   * Send the finished poster, not the bare QR.
-   *
-   * The QR on its own is not something you can put on a wall, so the old
-   * message had to link to the poster page and hope the admin opened it. This
-   * is the printable sheet itself at 300dpi: an admin can forward it straight
-   * to a print shop from Telegram without visiting anything.
-   */
   const sheet = await posterOrQr(slug, name);
 
   const caption =
@@ -220,7 +178,6 @@ async function cmdAdd(arg, threadId) {
     caption,
     messageThreadId: threadId,
   });
-
 
   return null;
 }
@@ -260,7 +217,6 @@ async function cmdQr(arg, threadId) {
       printLine(location.slug, sheet.degraded),
     messageThreadId: threadId,
   });
-
 
   return null;
 }
@@ -340,15 +296,7 @@ function cmdStats(arg, threadId) {
 
 /* ------------------------------------------------------- command: /pending */
 
-/**
- * List and re-push feedback that never reached the group.
- *
- * Submissions can be stored but undelivered for several reasons — Telegram was
- * down, the topic was deleted, the flood cap suppressed the push, or the bot
- * checks flagged it as automated. In every case the customer was shown a real
- * reference code and told it had been sent. Without this command the shop has
- * no way to find out those messages exist.
- */
+// Re-push stored feedback that never reached the group (Telegram down, held, quarantined).
 async function cmdPending(arg, threadId) {
   const slug = arg ? lookupSlug(arg) : null;
   if (slug && !getLocation(slug)) {
@@ -393,18 +341,10 @@ export async function handleCommand(message) {
   const text = message.text || '';
   if (!text.startsWith('/')) return;
 
-  // Ignore anything outside the configured group entirely. Someone who finds
-  // the bot and DMs it gets no response at all - not even an error, which would
-  // confirm the bot exists and is worth probing.
+  // Silent outside the group, so strangers learn nothing.
   if (String(message.chat.id) !== String(config.telegram.groupId)) return;
 
-  /*
-   * Telegram's GroupAnonymousBot: an admin who posted "as the group".
-   *
-   * getChatMember on this id fails, isAdmin fails closed, and the command is
-   * dropped in total silence -- so a real admin sees the bot ignore them with
-   * no way to find out why. Say so once, in the thread they typed in.
-   */
+  // An admin posting "as the group" can't be checked; tell them instead of ignoring them.
   const userId = message.from?.id;
   if (userId === GROUP_ANONYMOUS_BOT_ID) {
     await reply(
@@ -416,7 +356,6 @@ export async function handleCommand(message) {
   }
   if (!userId || !(await isAdmin(userId))) return;
 
-  // Strip the @botname suffix Telegram adds in groups.
   const match = text.match(/^\/([a-zA-Z_]+)(?:@\S+)?\s*([\s\S]*)$/);
   if (!match) return;
 

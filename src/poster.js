@@ -9,18 +9,7 @@ import { logoDataUri } from './brand.js';
 import { qrModules } from './qr.js';
 import { fontFaceCss } from './views.js';
 
-/*
- * The poster, drawn once as SVG.
- *
- * It used to be an HTML page, which printed well but could not be turned into
- * an image without a headless browser. Everything is SVG now and both outputs
- * come from this one function: the print page embeds it, and Chromium
- * screenshots the same sheet for the PNG. There is no second layout to drift
- * out of sync with the first.
- *
- * Coordinates are millimetres on an A5 sheet, so the numbers below are the
- * measurements you would give a printer.
- */
+// One SVG layout for both the print page and the PNG. Units are mm on A5.
 
 const MM_W = 148;
 const MM_H = 210;
@@ -35,8 +24,7 @@ let browserPromise;
 const fontOpts = {
   fontDirs: [FONT_DIR],
   defaultFontFamily: FONT_FAMILY,
-  // Never the system's fonts: a VPS has a different set from a laptop, and a
-  // poster that silently falls back to a face without Khmer prints as boxes.
+  // System fonts may lack Khmer and differ between machines.
   loadSystemFonts: false,
 };
 
@@ -45,15 +33,7 @@ const esc = (s) =>
 
 /* ------------------------------------------------------------ text metrics */
 
-/*
- * SVG has no text wrapping and no way to ask how wide a string will be, and
- * the widths here are not guessable: Khmer stacks subscript consonants, so
- * character count tells you almost nothing about the width of a line.
- *
- * So measure it: render the string once at a reference size, find the ink, and
- * keep the ratio. Cached by string and weight, and the strings are almost all
- * constants, so in practice this runs a handful of times at first use.
- */
+// Khmer width can't be estimated from length, so render once and measure the ink.
 const REF_SIZE = 100;
 const widthRatios = new Map();
 
@@ -71,8 +51,6 @@ function widthRatio(text, weight) {
   try {
     const img = new Resvg(probe, { font: fontOpts }).render();
     const png = img.asPng();
-    // Scan the raster for the rightmost dark pixel. Cheaper than decoding: the
-    // PNG is small and this happens once per distinct string.
     const decoded = PNG.sync.read(png);
     let right = 20;
     for (let y = 0; y < decoded.height; y++) {
@@ -93,7 +71,6 @@ function widthRatio(text, weight) {
   return ratio;
 }
 
-/** Largest size at or below `desired` (mm) that keeps the line inside `maxW`. */
 function fitSize(text, desired, maxW, weight) {
   const ratio = widthRatio(text, weight);
   if (ratio <= 0) return desired;
@@ -102,12 +79,6 @@ function fitSize(text, desired, maxW, weight) {
 
 /* --------------------------------------------------------------- the sheet */
 
-/**
- * Nest the QR's own SVG rather than re-drawing it.
- *
- * qrSvg() already carries the logo overlay and the quiet zone, and re-deriving
- * either here would be a second place for them to go wrong.
- */
 function nestQr(qrSvg, x, y, size) {
   const vb = qrSvg.match(/viewBox="([^"]+)"/);
   const inner = qrSvg.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');
@@ -119,48 +90,17 @@ export function posterSvg({ name, qrSvg }) {
   const logo = logoDataUri();
   const contact = [b.phone, b.email].filter(Boolean);
 
-  // -- the colour field and the card ----------------------------------------
   const fieldH = 134;
-  // The card is what the eye lands on, so it stays big - but not so big that
-  // the decoration behind it is reduced to slivers at the edges, which reads
-  // as a mistake rather than a background.
   const card = 98;
   const cardX = (MM_W - card) / 2;
   const cardY = (fieldH - card) / 2;
 
-  /*
-   * The card's padding IS the quiet zone.
-   *
-   * The code is drawn with margin 0 and the white card supplies the four
-   * modules of clear space a scanner needs. Doing both - a margin inside the
-   * image and padding around it - ringed the code in about 14mm of white and
-   * made it look small on the sheet, which is exactly what it looked like.
-   *
-   * Solving p >= 4 * (card - 2p) / modules for p gives the smallest padding
-   * that still satisfies the spec, so the code itself gets everything else.
-   */
+  // The card's padding is the quiet zone: 3 modules (tested; 2 misreads at an angle).
   const modules = qrModules(qrSvg) || 41;
-  /*
-   * Three modules of quiet zone, not the spec's four.
-   *
-   * Four left a visibly wide white ring inside the card and made the code look
-   * small on the sheet. Three is a deliberate, tested trade: every scanner
-   * tried reads it, and the code gains 5% of its width. Do not go below three
-   * - at two the finder patterns start to be misread at an angle, which is
-   * exactly the condition a poster on a wall is read in.
-   */
   const qrPad = Math.ceil((3 * card) / (modules + 6));
 
-  // -- the band underneath ---------------------------------------------------
-  /*
-   * Laid out as blocks with gaps, then fitted to the space that is left.
-   *
-   * Hand-tuned y offsets worked until a location had a contact line, at which
-   * point the last row printed past the bottom edge of the paper - and an A5
-   * sheet does not scroll. Measuring the stack and squeezing the gaps means
-   * any combination of brand, name length and contact lines lands on the page.
-   */
-  const pad = 12; // side margin for text
+  // Text below the card is stacked as blocks, then gaps are squeezed to fit the sheet.
+  const pad = 12;
   const maxW = MM_W - pad * 2;
   const blocks = [];
 
@@ -199,8 +139,6 @@ export function posterSvg({ name, qrSvg }) {
   const available = MM_H - bandTop - 8;
   const content = blocks.reduce((sum, blk) => sum + blk.h, 0);
   const gaps = blocks.reduce((sum, blk) => sum + blk.gap, 0);
-  // Squeeze the gaps, never the type: smaller text is harder to read from a
-  // metre away, while 20% less air is not something anyone notices.
   const gapScale = content + gaps > available ? Math.max(0.35, (available - content) / gaps) : 1;
 
   const rows = [];
@@ -244,23 +182,8 @@ function label(value, y, size) {
 
 /* ------------------------------------------------------------------- raster */
 
-/*
- * 300dpi. A5 at that density is 1748x2480, which is a genuine print file
- * rather than a screenshot of one - someone can forward it straight from
- * Telegram to a print shop.
- */
-const DPI = 300;
-
 async function browser() {
-  /*
-   * --no-sandbox is not optional here.
-   *
-   * Chromium refuses to start its sandbox as root, and this service runs as
-   * root on the VPS. Without the flag every poster render fails with an
-   * opaque launch error. --disable-dev-shm-usage is the companion fix: the
-   * default /dev/shm on a small VPS is 64MB and Chromium crashes part-way
-   * through a large screenshot when it runs out.
-   */
+  // The service runs as root (needs --no-sandbox) and small VPSes have a 64MB /dev/shm.
   browserPromise ??= puppeteer.launch({
     headless: 'new',
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
@@ -268,12 +191,7 @@ async function browser() {
   return browserPromise;
 }
 
-/*
- * Chromium's HarfBuzz text stack is used for the final rasterisation. The
- * font is inlined because setContent() has no application origin from which
- * to resolve /fonts/KhmerUI.woff2, and a network-dependent font would make
- * the generated poster nondeterministic.
- */
+// Chromium is the only renderer that shapes Khmer correctly. Font inlined: setContent() has no origin.
 export async function posterPng({ name, qrSvg }) {
   const page = await (await browser()).newPage();
   try {
@@ -294,13 +212,6 @@ export async function posterPng({ name, qrSvg }) {
 
 /* ------------------------------------------------------------- print page */
 
-/*
- * The printable page is now a thin wrapper around the same SVG.
- *
- * There is no second layout here on purpose: when the sheet was authored twice
- * - once in HTML for printing, once for the image - the two versions drifted,
- * and the copy an admin actually printed was never the one anyone reviewed.
- */
 export function posterHtml({ name, qrSvg, nonce = '' }) {
   const n = nonce ? ` nonce="${esc(nonce)}"` : '';
   return `<!doctype html>
@@ -311,15 +222,6 @@ export function posterHtml({ name, qrSvg, nonce = '' }) {
 <meta name="robots" content="noindex, nofollow">
 <title>${esc(name)}</title>
 <style${n}>${fontFaceCss}
-  /*
-   * The @font-face above is not decoration.
-   *
-   * The sheet is one SVG whose text asks for 'Kantumruy Pro' by name. The
-   * PNG is rendered on the server, which loads the TTFs directly - but this
-   * page is rendered by whatever browser the admin opened it in, and without a
-   * font to fetch it substitutes a system face. Khmer then comes out with
-   * marks stacked over the wrong consonants: legible-looking, and wrong.
-   */
   svg text { font-family: 'Kantumruy Pro', 'Khmer OS', system-ui, sans-serif; }
   @page { size: A5; margin: 0; }
   html, body { margin: 0; padding: 0; background: #e4e4e7; }
@@ -334,8 +236,6 @@ export function posterHtml({ name, qrSvg, nonce = '' }) {
                 border: 0; border-radius: 8px; background: #fff; color: #18181b; cursor: pointer; }
   .bar span { opacity: .8; }
   .bar a { color: #fff; }
-  /* 148mm is ~559px, so the sheet would scroll sideways on a phone — and the
-     runbook tells admins to open this link on their phone. */
   @media screen and (max-width: 620px) {
     body { padding-top: 64px; align-items: flex-start; }
     .sheet { transform: scale(.52); transform-origin: top center; margin-bottom: -100mm; }

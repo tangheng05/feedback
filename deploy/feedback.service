@@ -25,8 +25,7 @@ RestartSec=5
 StandardOutput=journal
 StandardError=journal
 
-# Hardening. The app only ever needs to read its own directory and write the
-# SQLite file inside it.
+# Hardening: the app only writes to data/.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict

@@ -8,7 +8,6 @@ fs.mkdirSync(path.dirname(config.dbPath), { recursive: true });
 
 export const db = new Database(config.dbPath);
 
-// WAL keeps reads from blocking the write that happens on every submission.
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
@@ -39,15 +38,7 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_feedback_slug_time ON feedback(slug, created_at);
 
-  /*
-   * Rate limiting counters.
-   *
-   * Deliberately an hour BUCKET with a count, not one row per submission. A
-   * per-submission row carrying a timestamp would sit milliseconds away from
-   * its feedback row and be trivially joinable back to it, which would undo
-   * the anonymity the form promises. A bucket counter cannot be correlated
-   * with any individual message.
-   */
+  -- Hourly counters, not per-submission rows, so they can't be joined to feedback.
   CREATE TABLE IF NOT EXISTS rate_buckets (
     ip_hash TEXT    NOT NULL,
     slug    TEXT    NOT NULL,
@@ -160,17 +151,7 @@ export const renameLocation = (slug, name) => stmts.renameLocation.run(name, slu
 export const setLocationActive = (slug, active) => stmts.setActive.run(active ? 1 : 0, slug);
 export const statsSince = (sinceTs) => stmts.stats.all(sinceTs);
 
-/**
- * Reserve a slug before the forum topic exists.
- *
- * /add has to await Telegram in the middle, and two admins running it at the
- * same moment would both pass a pre-await uniqueness check, both create a
- * topic, and the loser would then crash on the UNIQUE constraint — leaving an
- * orphaned empty topic behind. Claiming the row first makes the slug the lock:
- * the loser fails immediately, before creating anything.
- *
- * Returns null if the slug is already taken.
- */
+// Claims the slug before the topic exists, so concurrent /adds can't orphan a topic. Null if taken.
 export function reserveLocation({ slug, name }) {
   try {
     stmts.insertLocation.run(slug, name, 0, now());
@@ -186,8 +167,7 @@ export const deleteLocation = (slug) => stmts.deleteLocation.run(slug);
 
 /* ----------------------------------------------------------------- feedback */
 
-// Crockford-style base32: no I/L/O/U, so a reference code read aloud or copied
-// off a phone screen by a staff member can't be mistyped as a different code.
+// Crockford base32: no I/L/O/U, so refs can't be misread.
 const REF_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 
 function makeRef() {
@@ -199,13 +179,9 @@ function makeRef() {
 }
 
 export function insertFeedback(entry) {
-  // 32^5 ~ 33M codes; collisions are vanishingly rare but cheap to retry.
   for (let attempt = 0; attempt < 5; attempt++) {
     const ref = makeRef();
     try {
-      // One timestamp, returned to the caller. Computing it twice lets the
-      // originally sent message and the edited one (which re-reads the row)
-      // straddle a second boundary and display different minutes.
       const created_at = now();
       const info = stmts.insertFeedback.run({ status: 'new', ...entry, ref, created_at });
       return { id: info.lastInsertRowid, ref, created_at };
@@ -224,27 +200,12 @@ export const setFeedbackStatus = (ref, status) => stmts.setStatus.run(status, re
 
 /* ------------------------------------------------------------ rate limiting */
 
-/**
- * Check both limits and consume a slot in ONE synchronous transaction.
- *
- * This must not be split into a separate check and record: an `await` between
- * them lets every request in a concurrent burst read the same pre-increment
- * count, pass, and insert — which defeats both limits completely under exactly
- * the flood they exist to stop.
- *
- * Returns null when allowed, or 'ip' / 'location' naming the limit that fired.
- */
+// Check and consume in one synchronous transaction, or a concurrent burst all passes.
 export const consumeRateSlot = db.transaction((ipHash, slug, bucket, ipMax, locMax) => {
   const ipCount = stmts.ipBucketCount.get(ipHash, slug, bucket)?.n ?? 0;
   if (ipCount >= ipMax) return 'ip';
 
-  // Consume BEFORE the location check, not after.
-  //
-  // Returning 'location' without incrementing would freeze the per-IP counter
-  // for as long as the flood cap is engaged — so once a handful of addresses
-  // filled the location bucket, any single IP could write unbounded rows to
-  // disk for the rest of the hour with nothing counting them. Suppressing the
-  // Telegram push must not also suspend the per-IP limit.
+  // Count before the location check, so the per-IP limit still applies during a flood.
   stmts.bumpBucket.run(ipHash, slug, bucket);
 
   const locCount = stmts.locBucketCount.get(slug, bucket)?.n ?? 0;
@@ -258,7 +219,6 @@ export const purgeBuckets = (beforeBucket) => stmts.purgeBuckets.run(beforeBucke
 
 /* ------------------------------------------------------------ update dedup */
 
-/** True the first time an update_id is seen, false for a Telegram retry. */
 export function claimUpdate(updateId) {
   if (typeof updateId !== 'number') return true;
   return stmts.seenUpdate.run(updateId, now()).changes === 1;

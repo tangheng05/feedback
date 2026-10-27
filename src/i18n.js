@@ -1,19 +1,11 @@
-/**
- * English + Khmer strings for every customer-facing surface.
- *
- * ⚠ The Khmer here is a first draft written by the developer, not a native
- * speaker. Have a Khmer-speaking colleague read it before anything is printed
- * and hung in a shop — especially CATEGORIES and POSTER, which end up on paper
- * where a mistake is expensive to fix.
- */
+// Khmer reviewed by a native speaker, except POSTER and thanksHeading/thanksBody/refHelp.
 
 export const LANGS = ['km', 'en'];
 export const DEFAULT_LANG = 'km';
 
 export const CATEGORIES = [
-  // Khmer wording reviewed by a native speaker. Notes worth keeping:
-  //   បណ្តឹង alone reads as a legal lawsuit; ពាក្យបណ្តឹង is the customer-service word.
-  //   សំណើ is for formal business proposals; សំណូមពរ is what a customer makes.
+  // បណ្តឹង alone reads as a legal lawsuit; ពាក្យបណ្តឹង is the customer-service word.
+  // សំណើ is for formal business proposals; សំណូមពរ is what a customer makes.
   { id: 'complaint',  en: 'Complaint',  km: 'ពាក្យបណ្តឹង' },
   { id: 'suggestion', en: 'Suggestion', km: 'សំណូមពរ' },
   { id: 'compliment', en: 'Compliment', km: 'ការកោតសរសើរ' },
@@ -63,10 +55,7 @@ export const STRINGS = {
   km: {
     htmlLang: 'km',
     title: 'ផ្ញើមតិយោបល់',
-    // Reviewed by a native speaker. The originals read as direct translations
-    // of the English: "Tell us what you think", and a rating label that landed
-    // closer to "How was your coming to play?". These are the phrasings a
-    // Cambodian business would actually print.
+    // Native phrasings; the literal translations read as "how was your coming to play?".
     heading: 'សូមផ្តល់មតិយោបល់របស់អ្នក',
     subheading: 'អនាមិក — យើងមិនសួររកឈ្មោះរបស់អ្នកឡើយ។',
     categoryLabel: 'តើមតិយោបល់នេះទាក់ទងនឹងអ្វី?',
@@ -102,14 +91,7 @@ export const STRINGS = {
   },
 };
 
-/*
- * Poster text. Deliberately short.
- *
- * This is read from a metre away by someone deciding in about a second whether
- * to take their phone out. Every line that is not the question or the shop
- * name competes with the two that are, and the printed URL in particular was
- * dead weight: nobody types a URL off a poster that has a QR code on it.
- */
+// Kept short: read from a metre away.
 export const POSTER = {
   headingKm: 'តើលោកអ្នកមានបញ្ហា ឬមតិយោបល់មែនទេ?',
   headingEn: 'Something to tell us?',
@@ -119,14 +101,7 @@ export const POSTER = {
 
 export const pickLang = (raw) => (LANGS.includes(raw) ? raw : DEFAULT_LANG);
 
-/**
- * Choose a starting language from the browser's Accept-Language header.
- *
- * Scans the whole list, not just the first entry: plenty of cheap Android
- * handsets in Cambodia ship with English as the system default while their
- * owner reads Khmer, and those send `en-US,en;q=0.9,km;q=0.8`. If Khmer
- * appears anywhere in the list, prefer it.
- */
+// Khmer anywhere in the list wins: many phones default to English for Khmer readers.
 export function langFromHeader(header = '') {
   const tags = String(header)
     .toLowerCase()
