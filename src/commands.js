@@ -51,14 +51,19 @@ export function slugify(name) {
 // Not slugify(): its truncation would turn "phnom-penh-c-2" into another shop's slug.
 const lookupSlug = (arg) => String(arg || '').trim().toLowerCase();
 
+// Command keywords that can't be slugs, e.g. `/qr all`.
+const RESERVED_SLUGS = new Set(['all']);
+
+const isTaken = (slug) => RESERVED_SLUGS.has(slug) || Boolean(getLocation(slug));
+
 function uniqueSlug(desired) {
-  if (!getLocation(desired)) return desired;
+  if (!isTaken(desired)) return desired;
   for (let i = 2; i <= 99; i++) {
     const candidate = `${desired}-${i}`.slice(0, 16);
-    if (!getLocation(candidate)) return candidate;
+    if (!isTaken(candidate)) return candidate;
   }
   let fallback = randomSlug(5);
-  while (getLocation(fallback)) fallback = randomSlug(5);
+  while (isTaken(fallback)) fallback = randomSlug(5);
   return fallback;
 }
 
@@ -81,6 +86,7 @@ const HELP = `<b>Feedback bot commands</b>
 <code>/add Shop Name | slug</code> — same, but pick the URL yourself
 <code>/list</code> — every location and its link
 <code>/qr slug</code> — re-send the QR and poster
+<code>/qr all</code> — re-send every location's poster
 <code>/rename slug New Name</code> — rename (the printed QR keeps working)
 <code>/off slug</code> — stop accepting feedback there
 <code>/on slug</code> — start again
@@ -135,6 +141,9 @@ async function cmdAdd(arg, threadId) {
     slug = slugify(rawSlug);
   } else {
     slug = uniqueSlug(slugify(name));
+  }
+  if (RESERVED_SLUGS.has(slug)) {
+    return reply(threadId, `The slug <code>${esc(slug)}</code> is reserved. Pick another.`);
   }
 
   // Claim the slug before creating the topic; see reserveLocation.
@@ -200,25 +209,64 @@ function cmdList(threadId) {
 
 /* ------------------------------------------------------------ command: /qr */
 
-async function cmdQr(arg, threadId) {
-  if (!arg) return reply(threadId, 'Usage: <code>/qr slug</code> — see <code>/list</code> for slugs.');
-  const slug = lookupSlug(arg);
-  const location = getLocation(slug);
-  if (!location) {
-    return reply(threadId, `No location with slug <code>${esc(slug)}</code>. Try <code>/list</code>.`);
-  }
-
+async function sendPoster(location, threadId) {
   const sheet = await posterOrQr(location.slug, location.name);
   await tg.sendPhoto({
     buffer: sheet.buffer,
     filename: sheet.filename,
     caption:
-      `<b>${esc(location.name)}</b>` + BREAK + `${esc(formUrl(location.slug))}` +
+      `<b>${esc(location.name)}</b>${location.active ? '' : ' · paused'}` + BREAK +
+      `${esc(formUrl(location.slug))}` +
       printLine(location.slug, sheet.degraded),
     messageThreadId: threadId,
   });
+}
 
+async function cmdQr(arg, threadId) {
+  if (!arg) {
+    return reply(threadId, 'Usage: <code>/qr slug</code> or <code>/qr all</code> — see <code>/list</code> for slugs.');
+  }
+  const slug = lookupSlug(arg);
+  if (slug === 'all') return cmdQrAll(threadId);
+
+  const location = getLocation(slug);
+  if (!location) {
+    return reply(threadId, `No location with slug <code>${esc(slug)}</code>. Try <code>/list</code>.`);
+  }
+
+  await sendPoster(location, threadId);
   return null;
+}
+
+// Telegram allows about 20 messages a minute per group.
+const BULK_SEND_GAP_MS = 3000;
+
+async function cmdQrAll(threadId) {
+  const locations = listLocations();
+  if (!locations.length) {
+    return reply(threadId, 'No locations yet. Add the first with <code>/add Shop Name</code>.');
+  }
+
+  await reply(threadId, `Sending ${locations.length} poster${locations.length === 1 ? '' : 's'}…`);
+
+  const failed = [];
+  for (const [i, location] of locations.entries()) {
+    if (i) await new Promise((resolve) => setTimeout(resolve, BULK_SEND_GAP_MS));
+    try {
+      await sendPoster(location, threadId);
+    } catch (err) {
+      console.error(`[qr all] ${location.slug} failed:`, err.message);
+      failed.push(location.slug);
+    }
+  }
+
+  if (!failed.length) return reply(threadId, `✅ Sent all ${locations.length}.`);
+  return reply(
+    threadId,
+    `Sent ${locations.length - failed.length} of ${locations.length}. Failed: ` +
+      failed.map((s) => `<code>${esc(s)}</code>`).join(', ') +
+      '. Retry those with <code>/qr slug</code>.'
+  );
 }
 
 /* -------------------------------------------------------- command: /rename */

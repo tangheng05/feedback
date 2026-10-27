@@ -27,7 +27,7 @@ Only group admins can use these, and only inside the configured group.
 |---|---|
 | `/add Name` or `/add Name \| slug` | Add a store and get its poster |
 | `/list` | List every store and its link |
-| `/qr slug` | Re-send the poster |
+| `/qr slug` / `/qr all` | Re-send one store's poster, or every store's |
 | `/rename slug New Name` | Rename a store (printed QR codes keep working) |
 | `/off slug` / `/on slug` | Pause or resume a store |
 | `/stats [days]` | Totals and average rating (default 7 days) |
