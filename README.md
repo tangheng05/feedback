@@ -30,6 +30,7 @@ Only group admins can use these, and only inside the configured group.
 | `/qr slug` / `/qr all` | Re-send one store's poster, or every store's |
 | `/rename slug New Name` | Rename a store (printed QR codes keep working) |
 | `/off slug` / `/on slug` | Pause or resume a store |
+| `/delete slug` | Delete a store, its topic and all its feedback (asks to confirm) |
 | `/stats [days]` | Totals and average rating (default 7 days) |
 | `/pending` | Re-send feedback that never reached the group |
 

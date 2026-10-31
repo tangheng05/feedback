@@ -51,6 +51,9 @@ export const editForumTopic = (messageThreadId, name) =>
     name,
   });
 
+export const deleteForumTopic = (messageThreadId) =>
+  call('deleteForumTopic', { chat_id: config.telegram.groupId, message_thread_id: messageThreadId });
+
 export const getChatMember = (userId) =>
   call('getChatMember', { chat_id: config.telegram.groupId, user_id: userId });
 

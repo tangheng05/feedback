@@ -353,6 +353,7 @@ In Telegram:
 | See all locations | `/list` |
 | Pause / resume | `/off slug` · `/on slug` |
 | Rename (QR keeps working) | `/rename slug New Name` |
+| Remove a location for good | `/delete slug` |
 | Weekly numbers | `/stats` or `/stats 30` |
 | Anything that never arrived | `/pending` — lists it and re-sends |
 

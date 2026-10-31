@@ -91,6 +91,9 @@ const stmts = {
   setActive: db.prepare('UPDATE locations SET active = ? WHERE slug = ?'),
   setTopicId: db.prepare('UPDATE locations SET topic_id = ? WHERE slug = ?'),
   deleteLocation: db.prepare('DELETE FROM locations WHERE slug = ?'),
+  countFeedback: db.prepare('SELECT COUNT(*) AS n FROM feedback WHERE slug = ?'),
+  deleteFeedbackFor: db.prepare('DELETE FROM feedback WHERE slug = ?'),
+  deleteBucketsFor: db.prepare('DELETE FROM rate_buckets WHERE slug = ?'),
 
   insertFeedback: db.prepare(`
     INSERT INTO feedback (ref, slug, category, rating, message, lang, status, created_at)
@@ -164,6 +167,15 @@ export function reserveLocation({ slug, name }) {
 
 export const setLocationTopic = (slug, topicId) => stmts.setTopicId.run(topicId, slug);
 export const deleteLocation = (slug) => stmts.deleteLocation.run(slug);
+export const countFeedback = (slug) => stmts.countFeedback.get(slug).n;
+
+// Admin-requested removal: the only path that deletes feedback.
+export const purgeLocation = db.transaction((slug) => {
+  const feedback = stmts.deleteFeedbackFor.run(slug).changes;
+  stmts.deleteBucketsFor.run(slug);
+  stmts.deleteLocation.run(slug);
+  return feedback;
+});
 
 /* ----------------------------------------------------------------- feedback */
 

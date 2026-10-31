@@ -5,6 +5,8 @@ import {
   reserveLocation,
   setLocationTopic,
   deleteLocation,
+  purgeLocation,
+  countFeedback,
   renameLocation,
   setLocationActive,
   statsSince,
@@ -90,6 +92,7 @@ const HELP = `<b>Feedback bot commands</b>
 <code>/rename slug New Name</code> — rename (the printed QR keeps working)
 <code>/off slug</code> — stop accepting feedback there
 <code>/on slug</code> — start again
+<code>/delete slug</code> — remove a location, its topic and all its feedback
 <code>/stats</code> or <code>/stats 30</code> — totals for the last 7 / 30 days
 <code>/pending</code> — feedback that never reached this group, and re-send it
 <code>/help</code> — this list`;
@@ -319,6 +322,51 @@ function cmdToggle(arg, threadId, active) {
   );
 }
 
+/* ------------------------------------------------------- command: /delete */
+
+async function cmdDelete(arg, threadId) {
+  const [rawSlug, confirm] = String(arg || '').split(/\s+/);
+  if (!rawSlug) {
+    return reply(threadId, 'Usage: <code>/delete slug</code> — see <code>/list</code> for slugs.');
+  }
+  const location = getLocation(lookupSlug(rawSlug));
+  if (!location) {
+    return reply(threadId, `No location with slug <code>${esc(rawSlug)}</code>. Try <code>/list</code>.`);
+  }
+
+  if (confirm?.toLowerCase() !== 'confirm') {
+    const n = countFeedback(location.slug);
+    return reply(
+      threadId,
+      `⚠️ This permanently deletes <b>${esc(location.name)}</b>, its topic and ` +
+        `<b>${n} feedback message${n === 1 ? '' : 's'}</b>. Printed QRs for it stop working.` + BREAK +
+        `To go ahead, send:\n<code>/delete ${esc(location.slug)} confirm</code>` + BREAK +
+        `To keep everything and just stop new feedback, use <code>/off ${esc(location.slug)}</code> instead.`
+    );
+  }
+
+  const removed = purgeLocation(location.slug);
+
+  let topicNote = '';
+  if (location.topic_id) {
+    try {
+      await tg.deleteForumTopic(location.topic_id);
+    } catch (err) {
+      console.error('[delete] deleteForumTopic failed:', err.message);
+      topicNote = BREAK +
+        `Could not delete the topic (<i>${esc(err.description || err.message)}</i>). ` +
+        'Delete it by hand, or give me the <b>Delete Messages</b> permission next time.';
+    }
+  }
+
+  // The command may have been sent inside the topic that was just deleted.
+  const target = threadId === location.topic_id ? undefined : threadId;
+  return reply(
+    target,
+    `🗑 <b>${esc(location.name)}</b> deleted, with ${removed} feedback message${removed === 1 ? '' : 's'}.` + topicNote
+  );
+}
+
 /* --------------------------------------------------------- command: /stats */
 
 function cmdStats(arg, threadId) {
@@ -427,6 +475,8 @@ export async function handleCommand(message) {
       case 'on':
       case 'enable':
         return cmdToggle(trimmed, threadId, true);
+      case 'delete':
+        return await cmdDelete(trimmed, threadId);
       case 'stats':
         return cmdStats(trimmed, threadId);
       case 'pending':
